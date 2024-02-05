@@ -7,7 +7,7 @@ Command Line Tool for calculating optimal Turbine and Fission Reactors.  If the 
 ## Building
 
 1. Download the repo
-2. Run `Cargo build`
+2. Run `cargo build`
 
 ## Usage
 

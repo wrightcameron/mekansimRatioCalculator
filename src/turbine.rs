@@ -3,6 +3,8 @@ use std::cmp::{max, min};
 
 use crate::utils;
 
+type blocks = i32;
+
 const GENERAL_DISPERSER_GAS_FLOW: i32 = 1280; // mB/t
 const GENERAL_VENT_GAS_FLOW: i32 = 32000; // mB/t
 const GENERAL_CONDENSER_RATE: i32 = 64000; // mB/t
@@ -82,35 +84,48 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
     }
 
     // Calculate the max flow, and max water output for each shaft_height of the turbine.
-    let info = (1..min(2 * y - 5, 14)).map( | shaft_height: i32 | {
-        let tank_flow = calc_tank_flow_rate(x_z, shaft_height);
-        let mut smallest_difference = i32::MAX;
-        let mut best_vent_count = 0;
-        // Find the vent_count/vent flow closest to the tank flow.
-        for vent_count in (0..calc_max_vents(x_z, y, shaft_height)).rev() {
-            let vent_flow = calc_vent_flow_rate(vent_count);
-            // Get absolute
-            debug!("Tank Flow: {tank_flow}, Vent_flow: {vent_flow}");
-            if tank_flow - vent_flow < smallest_difference {
-                smallest_difference = (tank_flow - vent_flow).abs();
-                best_vent_count = vent_count;
+    let info = (1..min(2 * y - 5, 14))
+        .map(|shaft_height: i32| {
+            // println!("Shaft Height: {shaft_height}");
+            let tank_flow = calc_tank_flow_rate(x_z, shaft_height);
+            let mut smallest_difference = i32::MAX;
+            let mut best_vent_count = 0;
+            // Find the vent_count/vent flow closest to the tank flow.
+            for vent_count in (0..calc_max_vents(x_z, y, shaft_height)).rev() {
+                let vent_flow = calc_vent_flow_rate(vent_count);
+                // Get absolute
+                // println!(
+                    // "Tank Flow: {tank_flow}, Vent_flow: {vent_flow}, Vent Count: {vent_count}"
+                // );
+                if tank_flow - vent_flow < smallest_difference {
+                    smallest_difference = (tank_flow - vent_flow).abs();
+                    best_vent_count = vent_count;
+                }
+                // TODO Can we break?
             }
-            // TODO Can we break?
-        }
-        //TODO Now figure out what the best number of condensors would be
-        let max_flow = calc_max_flow_rate(x_z, shaft_height, best_vent_count);
-        let condensers = calc_optimal_condensers(x_z, y, shaft_height, shaft_height * 2, max_flow);
-        let water_output = max_water_output(condensers);
-        TurbineFlow {shaft_height, vents: best_vent_count, condensers, max_flow, max_water_ouput: water_output}
-    }).filter(| x | x.condensers > 0).collect::<Vec<TurbineFlow>>();
-    for i in &info{
+            //TODO Now figure out what the best number of condensors would be
+            let max_flow = calc_max_flow_rate(x_z, shaft_height, best_vent_count);
+            let condensers =
+                calc_optimal_condensers(x_z, y, shaft_height, shaft_height * 2, max_flow);
+            let water_output = max_water_output(condensers);
+            TurbineFlow {
+                shaft_height,
+                vents: best_vent_count,
+                condensers,
+                max_flow,
+                max_water_ouput: water_output,
+            }
+        })
+        .filter(|x| x.condensers > 0)
+        .collect::<Vec<TurbineFlow>>();
+    for i in &info {
         println!("TurbineFlow Info: {:?}", i);
     }
-    let best_turbine = info.iter().max_by_key(| x | x.max_flow).unwrap();
+    let best_turbine = info.iter().max_by_key(|x| x.max_flow).unwrap();
     let shaft_height = best_turbine.shaft_height;
     let max_rate = best_turbine.max_flow;
     let vents = best_turbine.vents;
-    
+
     // TODO Man I hate this calculation, it should be done better.
     // Find the ideal ratio of vents vs volume
     // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
@@ -129,7 +144,7 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
         capacity: 0,
         max_flow: max_rate,
         tank_volume: calc_lower_volume(x_z, shaft_height),
-        max_production: 0.0,
+        max_production: max_energy_prod(shaft_height * 2, coils, x_z, shaft_height, vents),
         max_water_output: max_water_output(condensers),
     }
 }
@@ -303,11 +318,10 @@ mod tests {
     }
     #[test]
     fn test_optimal_turbine_with_dimensions() {
-        let x_z = 5;
-        let y = 5;
+        // 5x5x5 Turbine
         let expected = Turbine {
-            x_z,
-            y,
+            x_z: 5,
+            y: 5,
             vents: 8,
             dispersers: 8,
             shaft_height: 1,
@@ -319,14 +333,64 @@ mod tests {
             max_production: 73.13, //kJ
             max_water_output: 256000,
         };
-        let actual = optimal_turbine_with_dimensions(x_z, y);
-            // assert_eq!(actual.capacity, 25920000);
-            assert_eq!(actual.max_flow, 256000);
-            assert_eq!(actual.tank_volume, 25);
-            assert_eq!(actual.dispersers, 8);
-            assert_eq!(actual.vents, 8);
-            assert_eq!(actual.coils, 2);
-            // assert_eq!(actual.max_production, 3.83);
-            assert_eq!(actual.max_water_output, 256000);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        // assert_eq!(actual.capacity, 25920000);
+        assert_eq!(actual.max_flow, expected.max_flow);
+        assert_eq!(actual.tank_volume, expected.tank_volume);
+        assert_eq!(actual.dispersers, expected.dispersers);
+        assert_eq!(actual.vents, expected.vents);
+        assert_eq!(actual.coils, expected.coils);
+        // assert_eq!(actual.max_production, 3.83);
+        assert_eq!(actual.max_water_output, expected.max_water_output);
+        // 5x5x9 Turbine
+        let expected = Turbine {
+            x_z: 5,
+            y: 9,
+            vents: 32,
+            dispersers: 8,
+            shaft_height: 4,
+            blades: 8,
+            coils: 2,
+            capacity: 6400000, //mB
+            max_flow: 1024000, //mB/t
+            tank_volume: 100,
+            max_production: 2.92,      //MJ
+            max_water_output: 1024000, //mB/t 16 condensers
+        };
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        // assert_eq!(actual.capacity, 25920000);
+        assert_eq!(actual.max_flow, expected.max_flow);
+        assert_eq!(actual.tank_volume, expected.tank_volume);
+        assert_eq!(actual.dispersers, expected.dispersers);
+        assert_eq!(actual.vents, expected.vents);
+        assert_eq!(actual.coils, expected.coils);
+        // assert_eq!(actual.max_production, 3.83);
+        assert_eq!(actual.max_water_output, expected.max_water_output);
+        // TODO Double check this
+        // 7x7x13 Turbine
+        let expected = Turbine {
+            x_z: 7,
+            y: 13,
+            vents: 125,
+            dispersers: 24,
+            shaft_height: 6,
+            blades: 12,
+            coils: 3,
+            capacity: 18816000, //mB
+            max_flow: 4000000,  //mB/t
+            tank_volume: 294,
+            max_production: 17.14, //MJ
+            max_water_output: 4032000,
+        };
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        println!("{:?}", actual);
+        // assert_eq!(actual.capacity, 25920000);
+        assert_eq!(actual.max_flow, expected.max_flow);
+        assert_eq!(actual.tank_volume, expected.tank_volume);
+        assert_eq!(actual.dispersers, expected.dispersers);
+        assert_eq!(actual.vents, expected.vents);
+        assert_eq!(actual.coils, expected.coils);
+        // assert_eq!(actual.max_production, 3.83);
+        assert_eq!(actual.max_water_output, expected.max_water_output);
     }
 }

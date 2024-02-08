@@ -1,9 +1,11 @@
-use std::cmp::{max, min};
 use log::debug;
+use std::cmp::{max, min};
 
 const GENERAL_DISPERSER_GAS_FLOW: i32 = 1280; // mB/t
 const GENERAL_VENT_GAS_FLOW: i32 = 32000; // mB/t
 const GENERAL_CONDENSER_RATE: i32 = 64000; // mB/t
+const MAX_ENERGY_PER_STEAM: i32 = 10; // Joules/mB of steam
+const TURBINE_BLADES_PER_COIL: i32 = 4;
 
 /// Struct Turbine
 #[derive(Debug)]
@@ -150,6 +152,13 @@ fn calc_tank_flow_rate(x_z: i32, shaft_height: i32) -> i32 {
         * calc_lower_volume(x_z, shaft_height)
 }
 
+fn convert_to_mega(n: f32) -> f32 {
+    let mega = n / 1000000.0;
+    // Appears that Mekanism calc just removes the 3rd decimcal instead of rounding up.
+    (mega * 100.0).floor() / 100.0
+    // (mega * 100.0).round() / 100.0
+}
+
 /// Calculate the flow rate of the vents
 fn calc_vent_flow_rate(vent_count: i32) -> i32 {
     vent_count * GENERAL_VENT_GAS_FLOW
@@ -163,7 +172,7 @@ fn calc_max_vents(x_z: i32, y: i32, shaft_height: i32) -> i32 {
     top_vents + side_vents
 }
 fn calc_lower_volume(x_z: i32, shaft_height: i32) -> i32 {
-    x_z * x_z * shaft_height
+    x_z.pow(2) * shaft_height
 }
 
 ///
@@ -181,16 +190,28 @@ fn energy_capacity(x_z: i32, y: i32) -> i32 {
     x_z.pow(2) * y * 16000
 }
 
-fn max_energy_production() {}
-
-// fn calc_flow_rate(num_vents: i32) -> i32 {
-//     // Flow rate is 16,000 MB/t
-//     num_vents * 16000
+// fn get_production_rate() {
+//     let mut energy_multiplier: f32 = (MAX_ENERGY_PER_STEAM as f32 / blades as f32);
+//     energy_multiplier = energy_multiplier * min(blades, coils * TURBINE_BLADES_PER_COIL) as f32;
+//     return energy_multiplier
 // }
 
-//fn calc_max_water_output() -> i32 {
-//    // Don't know yet.
-//}
+// https://github.com/mekanism/Mekanism/blob/d22f6e2028009ed043f8b40c4ea1f7912be3002c/src/generators/java/mekanism/generators/common/content/turbine/TurbineMultiblockData.java#L244
+fn max_energy_prod(blades: i32, coils: i32, x_z: i32, shaft_height: i32, vents: i32) -> f32 {
+    MAX_ENERGY_PER_STEAM as f32
+        * blade_rate(blades, coils) as f32
+        * calc_max_flow_rate(x_z, shaft_height, vents) as f32
+}
+
+fn blade_rate(blades: i32, coils: i32) -> f32 {
+    let blade_rate_1 = blades as f32 / 28.0;
+    let blade_rate_2 = (coils * TURBINE_BLADES_PER_COIL) as f32 / 28.0;
+    if blade_rate_1 < blade_rate_2 {
+        return blade_rate_1;
+    } else {
+        return blade_rate_2;
+    }
+}
 
 fn calc_optimal_condensers(x_z: i32, y: i32, shaft_height: i32, coils: i32, max_flow: i32) -> i32 {
     debug!("y: {y}, shaft_height: {shaft_height}");
@@ -224,7 +245,7 @@ mod tests {
     #[test]
     fn test_calc_pressure_dispersers() {
         let x_z = 5;
-        let expected = 15;
+        let expected = 8;
         assert_eq!(calc_pressure_dispersers(x_z), expected);
     }
 
@@ -244,6 +265,33 @@ mod tests {
         let expected = 161;
         let actual = calc_max_vents(x_z, y, shaft_height);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_max_energy_production() {
+        // 5x5x9
+        let expected = Turbine {
+            x_z: 5,
+            y: 9,
+            vents: 32,
+            dispersers: 8,
+            shaft_height: 4,
+            blades: 8,
+            coils: 2,
+            capacity: 6400000, //mB
+            max_flow: 1024000, //mB/t
+            tank_volume: 100,
+            max_production: 2.92,      //MJ
+            max_water_output: 1024000, //mB/t 16 condensers
+        };
+        let actual = max_energy_prod(
+            expected.blades,
+            expected.coils,
+            expected.x_z,
+            expected.shaft_height,
+            expected.vents,
+        );
+        assert_eq!(convert_to_mega(actual), expected.max_production);
     }
 
     #[test]

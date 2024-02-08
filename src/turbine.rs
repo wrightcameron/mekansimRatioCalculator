@@ -1,6 +1,8 @@
 use log::debug;
 use std::cmp::{max, min};
 
+use crate::utils;
+
 const GENERAL_DISPERSER_GAS_FLOW: i32 = 1280; // mB/t
 const GENERAL_VENT_GAS_FLOW: i32 = 32000; // mB/t
 const GENERAL_CONDENSER_RATE: i32 = 64000; // mB/t
@@ -152,13 +154,6 @@ fn calc_tank_flow_rate(x_z: i32, shaft_height: i32) -> i32 {
         * calc_lower_volume(x_z, shaft_height)
 }
 
-fn convert_to_mega(n: f32) -> f32 {
-    let mega = n / 1000000.0;
-    // Appears that Mekanism calc just removes the 3rd decimcal instead of rounding up.
-    (mega * 100.0).floor() / 100.0
-    // (mega * 100.0).round() / 100.0
-}
-
 /// Calculate the flow rate of the vents
 fn calc_vent_flow_rate(vent_count: i32) -> i32 {
     vent_count * GENERAL_VENT_GAS_FLOW
@@ -291,7 +286,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(convert_to_mega(actual), expected.max_production);
+        assert_eq!(utils::convert_to_mega(actual), expected.max_production);
     }
 
     #[test]

@@ -28,6 +28,17 @@ pub struct Turbine {
     pub max_water_output: i32,
 }
 
+impl Turbine {
+    pub fn print(&self){
+        println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
+        println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
+        println!("- Vents: {}",self.vents);
+        println!("- Dispersers: {}", self.dispersers);
+        println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
+        println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
+    }
+}
+
 #[derive(Debug)]
 struct TurbineFlow {
     shaft_height: i32,

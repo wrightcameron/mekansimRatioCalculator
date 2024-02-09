@@ -13,6 +13,13 @@ pub struct FissionReactor {
     pub control_rods: i32,
 }
 
+impl FissionReactor {
+    pub fn print(&self){
+        println!("A {}x{}x{} Fission Reactor", self.x, self.z, self.y);
+        println!("- Fuel Assemblies {}, and Control Rods {}\n", self.fuel_assemblies, self.control_rods);
+    }
+}
+
 ///
 pub fn turbine_based_fission_reactor(turbine: Turbine) -> FissionReactor {
     let fuel_assemblies = optimal_fuel_assemblies(turbine);

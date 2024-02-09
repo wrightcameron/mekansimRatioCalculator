@@ -36,11 +36,11 @@ fn interactive() {
 
             //Pass the dimensions, get the most optimal turbine.
             let turbine = turbine::optimal_turbine_with_dimensions(x_z,y);
-            println!("{:?}",turbine);
+            turbine.print();
 
             //Recommend Fission Reactor based on Turbine
             let fission_reactor = fission::turbine_based_fission_reactor(turbine);
-            println!("{:?}",fission_reactor);
+            fission_reactor.print();
 
         }else if user_input.eq("m"){
             println!("Manual Turbine entry -- TODO");

@@ -34,12 +34,11 @@ fn interactive() {
                 user_input = read_user_input();
                 match user_input.as_ref() {
                     "o" => {
-                        println!("Input turbine length.");
+                        println!("Input turbine length & depth.");
                         let x_z = read_user_input().parse::<i32>().unwrap();
-            
                         println!("Input turbine height.");
                         let y = read_user_input().parse::<i32>().unwrap();
-            
+
                         //Pass the dimensions, get the most optimal turbine.
                         let turbine = turbine::optimal_turbine_with_dimensions(x_z,y);
                         turbine.print();
@@ -52,12 +51,37 @@ fn interactive() {
                             fission_reactor.print();
                         }
                     },
-                    "m" => print_interactive_help(),
+                    "m" => println!("TODO: Need to add"),
                     _ => println!("Unrecognized input: '{}'",user_input),
                 }
             },
             "r" => {
-                println!("Fission Reactor -- TODO");
+                println!("Fission Reactor.\n\n Options:\n o: optimal - optimal based on dimension.\nm: manual - get calculations based on already existing reactor.");
+                user_input = read_user_input();
+                match user_input.as_ref() {
+                    "o" => {
+                        println!("Input reactor length.");
+                        let x = read_user_input().parse::<i32>().unwrap();
+                        println!("Input reactor width.");
+                        let z = read_user_input().parse::<i32>().unwrap();
+                        println!("Input reactor height.");
+                        let y = read_user_input().parse::<i32>().unwrap();
+
+                        //Pass the dimensions, get the most optimal turbine.
+                        let fission_reactor = fission::optimal_fission_with_dimensions(x, z, y);
+                        fission_reactor.print();
+                        // Ask user if they want to make an encompanting turbine
+                        println!("Create an optimal turbine for this turbine? (y/n)");
+                        user_input = read_user_input();
+                        if user_input.eq("y") {
+                            //Recommend Turbine based Fission Reactor
+                            let turbine = turbine::turbine_based_on_fission_reactor(fission_reactor.water_burn_rate);
+                            // turbine.print();
+                        }
+                    },
+                    "m" => println!("TODO: Need to add"),
+                    _ => println!("Unrecognized input: '{}'",user_input),
+                }
             },
             "m" => print_interactive_help(),
             "q" => std::process::exit(0),
@@ -69,6 +93,7 @@ fn interactive() {
     }
 }
 
+/// Print help message for interactive commands at top level
 fn print_interactive_help() {
     println!("Options:\n t: turbine\nr: fission reactor\nQuit: q");
 }

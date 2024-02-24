@@ -21,35 +21,54 @@ fn read_user_input() -> String {
 /// Handle interactive "REPL" use of tool
 fn interactive() {
     println!("Welcome to Mekanism Ratio Calculator, interactive mode.");
+    // let mut turbines_vec: Vec<turbine::Turbine> = Vec::new();
     //TODO Does user want to build a turbine or reactor
-    println!("Options:\n t: turbine\nr: fission reactor");
-    let mut user_input = read_user_input();
-    if user_input.eq("t") {
-        println!("Turbines.\n\n Options:\n o: optimal - optimal based on dimension.\nm: manual - get calculations based on already existing turbine.");
-        user_input = read_user_input();
-        if user_input.eq("o") {
-            println!("Input turbine length.");
-            let x_z = read_user_input().parse::<i32>().unwrap();
-
-            println!("Input turbine height.");
-            let y = read_user_input().parse::<i32>().unwrap();
-
-            //Pass the dimensions, get the most optimal turbine.
-            let turbine = turbine::optimal_turbine_with_dimensions(x_z,y);
-            turbine.print();
-
-            //Recommend Fission Reactor based on Turbine
-            let fission_reactor = fission::turbine_based_fission_reactor(turbine);
-            fission_reactor.print();
-
-        }else if user_input.eq("m"){
-            println!("Manual Turbine entry -- TODO");
-        } else {
-            println!("Unrecognized input: '{}'",user_input);
+    // Root level loop
+    println!("Command (m: for help):");
+    loop {
+        let mut user_input = read_user_input();
+        match user_input.as_ref() {
+            "t" => {
+                // Turbines
+                println!("Turbines.\n\n Options:\n o: optimal - optimal based on dimension.\nm: manual - get calculations based on already existing turbine.");
+                user_input = read_user_input();
+                match user_input.as_ref() {
+                    "o" => {
+                        println!("Input turbine length.");
+                        let x_z = read_user_input().parse::<i32>().unwrap();
+            
+                        println!("Input turbine height.");
+                        let y = read_user_input().parse::<i32>().unwrap();
+            
+                        //Pass the dimensions, get the most optimal turbine.
+                        let turbine = turbine::optimal_turbine_with_dimensions(x_z,y);
+                        turbine.print();
+                        // Ask user if they want to make an encompanting fission reactor
+                        println!("Create an optimal fission reactor for this turbine? (y/n)");
+                        user_input = read_user_input();
+                        if user_input.eq("y") {
+                            //Recommend Fission Reactor based on Turbine
+                            let fission_reactor = fission::turbine_based_fission_reactor(turbine);
+                            fission_reactor.print();
+                        }
+                    },
+                    "m" => print_interactive_help(),
+                    _ => println!("Unrecognized input: '{}'",user_input),
+                }
+            },
+            "r" => {
+                println!("Fission Reactor -- TODO");
+            },
+            "m" => print_interactive_help(),
+            "q" => std::process::exit(0),
+            _ => {
+                println!("Unrecognized input: '{}'",user_input);
+                print_interactive_help();
+            },
         }
-    }else if user_input.eq("r"){
-        println!("Fission Reactor -- TODO");
-    } else {
-        println!("Unrecognized input: '{}'",user_input);
     }
+}
+
+fn print_interactive_help() {
+    println!("Options:\n t: turbine\nr: fission reactor\nQuit: q");
 }

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 log = "0.4.16"
 num = "0.4.1"
+factor = "0.4.0"

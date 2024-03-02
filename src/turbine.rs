@@ -30,18 +30,6 @@ pub struct Turbine {
     pub max_water_output: i32,
 }
 
-impl Turbine {
-    #[allow(dead_code)]
-    pub fn print(&self){
-        println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
-        println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
-        println!("- Vents: {}",self.vents);
-        println!("- Dispersers: {}", self.dispersers);
-        println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
-        println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
-    }
-}
-
 impl Default for Turbine {
     fn default() -> Turbine {
         Turbine {
@@ -59,6 +47,19 @@ impl Default for Turbine {
             max_production: 0.0,
             max_water_output: 0,
         }
+    }
+}
+
+impl Turbine {
+    #[allow(dead_code)]
+    pub fn print(&self){
+        println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
+        println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
+        println!("- Vents: {}",self.vents);
+        println!("- Dispersers: {}", self.dispersers);
+        println!("- Condensers: {}", self.condensers);
+        println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
+        println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
     }
 }
 
@@ -102,7 +103,7 @@ pub fn turbine_factory(
 }
 
 // Return most optimal turbine based on number of fuel assemblies of existing fission reactor
-pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) {
+pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     let mut turbine = Turbine { ..Default::default() };
     // Get Max Water Output
     let condensers = water_burn_rate / GENERAL_CONDENSER_RATE;
@@ -133,10 +134,26 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) {
     }
     turbine.max_flow = min(vent_flow, turbine.max_flow);
     turbine.tank_volume = calc_lower_volume(turbine.x_z, turbine.shaft_height);
+    for y in (turbine.shaft_height + 3)..18 {
+        let upper_y = y - turbine.shaft_height - 3;
+        let internal_volume = upper_y * (turbine.x_z - 2).pow(2);
+        // Check if internal area big enough for all vents
+        if internal_volume < (turbine.coils + turbine.condensers) {
+            continue;
+        }
+        // Check if internal area big enough for both coils and condensers
+        let side_area = upper_y * (turbine.x_z - 2);
+        let top_area = (turbine.x_z - 2).pow(2);
+        if (side_area + top_area) < turbine.vents {
+            continue;
+        }
+        turbine.y = y;
+        break;
+    }
+    println!("Length {}, Height {}", turbine.x_z, turbine.y);
     println!("Max Water Output {} mb/t", turbine.max_water_output);
     println!("Flow Rate {} mb/t", turbine.max_flow);
-    // TODO Build a turbine with the data we have.
-    // y = 1 + turbine.shaft_height + 1 + x + 1;
+    turbine
 }
 
 //FLOW = min(1, TURBINE_STORED_AMOUNT / MAX_RATE) *
@@ -210,10 +227,7 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
     turbine.shaft_height = best_turbine.shaft_height;
     turbine.max_flow = best_turbine.max_flow;
     turbine.vents = best_turbine.vents;
-
     turbine.coils = calc_coils_needed(turbine.shaft_height * 2);
-    
-    
     turbine.x_z = x_z;
     turbine.y = y;
     turbine.blades = turbine.shaft_height * 2;
@@ -259,7 +273,6 @@ fn calc_max_vents(x_z: i32, y: i32, shaft_height: i32) -> i32 {
     let top_vents = (x_z - 2).pow(2);
     let remaining_height = y - 2 - shaft_height;
     let side_vents = max((remaining_height * (x_z - 2)) * 4, 0);
-    println!("{top_vents}, {side_vents}");
     top_vents + side_vents
 }
 #[allow(dead_code)]

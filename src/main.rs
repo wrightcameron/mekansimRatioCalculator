@@ -47,7 +47,7 @@ fn interactive() {
                         user_input = read_user_input();
                         if user_input.eq("y") {
                             //Recommend Fission Reactor based on Turbine
-                            let fission_reactor = fission::turbine_based_fission_reactor(turbine);
+                            let fission_reactor = fission::turbine_based_fission_reactor(&turbine);
                             fission_reactor.print();
                         }
                     },

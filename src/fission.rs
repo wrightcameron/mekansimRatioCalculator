@@ -1,5 +1,6 @@
 use crate::turbine::Turbine;
 use std::cmp::min;
+use factor::factor;
 
 // use num_integer::Roots; 
 
@@ -13,8 +14,29 @@ pub struct FissionReactor {
     pub y: i32,
     pub fuel_assemblies: i32,
     pub control_rods: i32,
-    pub water_burn_rate: i32,
+    pub water_burn_rate: i32,  // mb/t
+    pub heat_capacity: i32,  // J/K
+    pub fuel_surface_area: i32,  // m2
+    pub boil_efficiency: i32,  //This one will be hard to model
+    pub max_burn_rate: i32,  // mB/t
     //TODO Need to add the burn rate calculations, like what the coolant flow rate will be
+}
+
+impl Default for FissionReactor {
+    fn default() -> FissionReactor {
+        FissionReactor {
+            x: 0,
+            z: 0,
+            y: 0,
+            fuel_assemblies: 0,
+            control_rods: 0,
+            water_burn_rate: 0,
+            heat_capacity: 0,  // J/K
+            fuel_surface_area: 0,  // m2
+            boil_efficiency: 0,  //This one will be hard to model
+            max_burn_rate: 0,  // mB/t
+        }
+    }
 }
 
 impl FissionReactor {
@@ -32,14 +54,14 @@ pub fn optimal_fission_with_dimensions(x: i32, z: i32, y: i32) -> FissionReactor
     // TODO Need to throw an error, return nothing
     // Check if reactor's dimensions fall within an acceptable size
     if x < 3 {
-        println!("Reactor length and width too small, min 3 blocks.");
+        println!("Reactor length too small, min 3 blocks.");
     } else if 18 < x {
-        println!("Reactor length and width too large, max 18 blocks.");
+        println!("Reactor length too large, max 18 blocks.");
     }
     if z < 3 {
-        println!("Reactor length and width too small, min 3 blocks.");
+        println!("Reactor width too small, min 3 blocks.");
     } else if 18 < z {
-        println!("Reactor length and width too large, max 18 blocks.");
+        println!("Reactor width too large, max 18 blocks.");
     }
     if y < 4 {
         println!("Reactor height too small, min 4 blocks.");
@@ -50,23 +72,22 @@ pub fn optimal_fission_with_dimensions(x: i32, z: i32, y: i32) -> FissionReactor
     let (fuel_assemblies, control_rods) = fuel_assemblies_dimensions(x, z, y);
     // Is this something the reactor should know about itself?  Also this could be calculated automatically by the struct
     let water_burn_rate = fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE;
-    FissionReactor {x, z, y, fuel_assemblies, control_rods, water_burn_rate}
+    FissionReactor {x, z, y, fuel_assemblies, control_rods, water_burn_rate, ..Default::default()}
 }
 
 /// Create fission reactor based on max output/max flow from turbine
 #[allow(dead_code)]
-pub fn turbine_based_fission_reactor(turbine: Turbine) -> FissionReactor {
+pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
     let fuel_assemblies = optimal_fuel_assemblies(turbine);
     //12 = aread of the inside = (x - 2) * (z-2) * (y - 2)
-    // TODO This would be better if this was a constructor, remove the things related to ratios and calculations
-    FissionReactor {
-        x: 0,
-        z: 0,
-        y: 0,
+    let reactor = FissionReactor {
         fuel_assemblies: fuel_assemblies,
-        control_rods: 0,
-        water_burn_rate: 0
-    }
+        ..Default::default()
+    };
+    // Get the largest factor of fuel assemblies, for now assume composite/not prime
+    let soma = factor::factor(fuel_assemblies as i64);
+    println!("Soma is {:?}", soma);
+    reactor
 }
 
 /// area inside reactor, 
@@ -97,7 +118,7 @@ fn fuel_assemblies_dimensions(x: i32, z: i32, y: i32) -> (i32, i32) {
 
 /// Get optimal number of fuel assemblies based on max flow and max water output of turbine
 #[allow(dead_code)]
-fn optimal_fuel_assemblies(turbine: Turbine) -> i32 {
+fn optimal_fuel_assemblies(turbine: &Turbine) -> i32 {
     min(turbine.max_flow, turbine.max_water_output) / FUEL_ASSEMBLY_FLUID_BURN_RATE
 }
 
@@ -109,24 +130,36 @@ mod tests {
     //Act
     //Assert
 
-    #[test]
-    fn test_calc_coils_needed() {
-        let blades = 10;
-        let expected_coils = 3;
-        assert_eq!(calc_coils_needed(blades), expected_coils);
-    }
+    // #[test]
+    // fn test_calc_coils_needed() {
+    //     let blades = 10;
+    //     let expected_coils = 3;
+    //     assert_eq!(calc_coils_needed(blades), expected_coils);
+    // }
 
-    fn test_optimal_fission_with_dimensions() {
-        let actual = FissionReactor {
-            x: 5,
-            z: 5,
-            y: 5,
-            fuel_assemblies: 10,
-            control_rods: 5,
-            water_burn_rate: fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE,
+    // fn test_optimal_fission_with_dimensions() {
+    //     let actual = FissionReactor {
+    //         x: 5,
+    //         z: 5,
+    //         y: 5,
+    //         fuel_assemblies: 10,
+    //         control_rods: 5,
+    //         water_burn_rate: fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE,
+    //     };
+    //     let expected = optimal_fission_with_dimensions(actual.x, actual.z, actual.y);
+    //     assert_eq!(actual.fuel_assemblies, expected.fuel_assemblies);
+    //     assert_eq!(actual.control_rods, expected.control_rods);
+    // }
+
+    #[test]
+    fn test_turbine_based_fission_reactor() {
+        let actual_turbine = Turbine {
+            max_flow: 256000,
+            max_water_output: 256000,
+            ..Default::default()
         };
-        let expected = optimal_fission_with_dimensions(actual.x, actual.z, actual.y);
-        assert_eq!(actual.fuel_assemblies, expected.fuel_assemblies);
-        assert_eq!(actual.control_rods, expected.control_rods);
+        let reactor = turbine_based_fission_reactor(&actual_turbine);
+        assert_eq!(reactor.fuel_assemblies, 12);
+        assert_eq!(reactor.control_rods, 6);
     }
 }

@@ -108,11 +108,11 @@ pub fn turbine_factory(
 pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     let mut turbine: Turbine = Turbine { ..Default::default() };
     // Get Max Water Output
-    let condensers = (water_burn_rate as f32 / GENERAL_CONDENSER_RATE as f32 ).ceil() as i32;
-    turbine.max_water_output = max_water_output(condensers);
+    turbine.condensers = (water_burn_rate as f32 / GENERAL_CONDENSER_RATE as f32 ).ceil() as i32;
+    turbine.max_water_output = max_water_output(turbine.condensers);
 
     // Get Max Water Flow, which is more effort
-    turbine.vents = water_burn_rate / GENERAL_VENT_GAS_FLOW;
+    turbine.vents = (water_burn_rate as f32 / GENERAL_VENT_GAS_FLOW as f32).ceil() as i32;
     let vent_flow = turbine.vents * GENERAL_VENT_GAS_FLOW;
     let mut difference = i32::MAX;
     //Tank Flow needs to be calculated to get as close to vent_flow as possible
@@ -123,30 +123,25 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
         for shaft_height in 1..min(2 * length - 5, 14) {
             let dispersers = calc_pressure_dispersers(length);
             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
-            if (vent_flow - tank_flow) < difference {
-                difference = vent_flow - tank_flow;
+            if (vent_flow - tank_flow).abs() < difference {
+                difference = (vent_flow - tank_flow).abs();
                 // Add all the values and blocks to the turbine being constructed
                 turbine.x_z = length;
-                turbine.y = max_height;
                 turbine.dispersers = dispersers;
                 turbine.shaft_height = shaft_height;
-                // TODO This is all repeated 
-                // Find the vent_count/vent flow closest to the tank flow.
-                turbine.blades = shaft_height * 2;
-                turbine.coils = calc_coils_needed(turbine.blades);
-                // TODO Do we need to do energy production here
-                // let (vent_count, _energy_production) = best_vent_count(&turbine);
-                // turbine.vents = vent_count;
-                // turbine.max_flow = calc_max_flow_rate(length, shaft_height, turbine.vents);
             } else {
                 break; 
             }
         }
     }
 
-    // TODO Max flow is not being set in the for loop above, so always set to 0
-    turbine.max_flow = min(vent_flow, turbine.max_flow);
+    turbine.blades = turbine.shaft_height * 2;
+    turbine.coils = calc_coils_needed(turbine.blades);
+    turbine.max_flow = calc_max_flow_rate(turbine.x_z, turbine.shaft_height, turbine.vents);
     turbine.tank_volume = calc_lower_volume(turbine.x_z, turbine.shaft_height);
+    turbine.max_production = max_energy_prod(turbine.blades, turbine.coils, turbine.x_z, turbine.shaft_height, turbine.vents);
+    turbine.max_water_output = max_water_output(turbine.condensers);
+    // Calculate min height
     for y in (turbine.shaft_height + 3)..18 {
         let upper_y = y - turbine.shaft_height - 3;
         let internal_volume = upper_y * (turbine.x_z - 2).pow(2);
@@ -163,9 +158,6 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
         turbine.y = y;
         break;
     }
-    println!("Length {}, Height {}", turbine.x_z, turbine.y);
-    println!("Max Water Output {} mb/t", turbine.max_water_output);
-    println!("Flow Rate {} mb/t", turbine.max_flow);
     turbine
 }
 
@@ -567,11 +559,7 @@ mod tests {
     #[test]
     fn test_turbine_based_on_fission_reactor() {
         //5x5x5
-        let expected = Turbine {
-            x_z: 5,
-            y: 5,
-            ..Default::default()
-        };
+        let expected = get_optimal_turbine(5,5);
         let water_burn_rate = 240000; //mb/t
         let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate);
         assert_eq!(actual.x_z, expected.x_z);

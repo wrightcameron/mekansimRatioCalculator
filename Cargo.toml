@@ -9,3 +9,7 @@ edition = "2021"
 log = "0.4.16"
 num = "0.4.1"
 factor = "0.4.0"
+serde = { version = "1.0.108", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0.108"

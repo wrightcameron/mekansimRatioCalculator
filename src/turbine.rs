@@ -3,6 +3,8 @@ use std::cmp::{max, min};
 
 // TODO This is only used for testing right now, going to have warnings
 use crate::utils;
+use serde::Deserialize;
+// TODO Check if we could get Deserialized in dev dependancies
 
 // type blocks = i32;
 
@@ -13,7 +15,7 @@ const MAX_ENERGY_PER_STEAM: i32 = 10; // Joules/mB of steam
 const TURBINE_BLADES_PER_COIL: i32 = 4;
 
 /// Struct Turbine
-#[derive(Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Turbine {
     pub x_z: i32,
     pub y: i32,
@@ -63,7 +65,7 @@ impl Turbine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Deserialize, Debug)]
 struct TurbineFlow {
     shaft_height: i32,
     vents: i32,
@@ -370,7 +372,17 @@ fn max_water_output(condensers: i32) -> i32 {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use serde_json;
+    use std::fs;
+
+    fn get_optimal_turbine(x_z: i32, y: i32) -> Turbine {
+        let json_string =
+            fs::read_to_string("data/optimal_turbines.json").expect("JSON file doesn't exist!");
+        let json: Vec<Turbine> = serde_json::from_str(&json_string).expect("JSON was not well-formatted");
+        json.iter().find(|x| x.x_z == x_z && x.y == y).unwrap().clone()
+    }
 
     //Arrange
     //Act
@@ -485,24 +497,11 @@ mod tests {
         // assert_eq!(actual.max_production, 3.83);
         assert_eq!(actual.max_water_output, 3072000);
     }
+
     #[test]
     fn test_optimal_turbine_with_dimensions() {
         // 5x5x5 Turbine
-        let expected = Turbine {
-            x_z: 5,
-            y: 5,
-            vents: 8,  // Verified the correct ammount is 8
-            dispersers: 8,
-            shaft_height: 1,
-            blades: 2,
-            coils: 2,
-            capacity: 1600000,
-            max_flow: 256000,
-            tank_volume: 25,
-            max_production: 73.13, //kJ
-            max_water_output: 256000,
-            ..Default::default()
-        };
+        let expected = get_optimal_turbine(5,5);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         // assert_eq!(actual.capacity, 25920000);
         assert_eq!(actual.max_flow, expected.max_flow);
@@ -513,21 +512,7 @@ mod tests {
         // assert_eq!(actual.max_production, 3.83);
         assert_eq!(actual.max_water_output, expected.max_water_output);
         // 5x5x9 Turbine
-        let expected = Turbine {
-            x_z: 5,
-            y: 9,
-            vents: 32,
-            dispersers: 8,
-            shaft_height: 4,
-            blades: 8,
-            coils: 2,
-            capacity: 6400000, //mB
-            max_flow: 1024000, //mB/t
-            tank_volume: 100,
-            max_production: 2.92,      //MJ
-            max_water_output: 1024000, //mB/t 16 condensers
-            ..Default::default()
-        };
+        let expected = get_optimal_turbine(5,9);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual.dispersers, expected.dispersers);
         assert_eq!(actual.vents, expected.vents);
@@ -539,22 +524,7 @@ mod tests {
         assert_eq!(actual.max_water_output, expected.max_water_output);
         // TODO Double check this
         // 7x7x13 Turbine
-        let expected = Turbine {
-            x_z: 7,
-            y: 13,
-            vents: 125,
-            dispersers: 24,
-            condensers: 63,
-            shaft_height: 6,
-            blades: 12,
-            coils: 3,
-            capacity: 18816000, //mB
-            max_flow: 4000000,  //mB/t
-            tank_volume: 294,
-            max_production: 17.14, //MJ
-            max_water_output: 4032000, // mB/t
-            ..Default::default()
-        };
+        let expected = get_optimal_turbine(7,13);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         println!("{:?}", actual);
         assert_eq!(actual.dispersers, expected.dispersers);
@@ -568,22 +538,7 @@ mod tests {
         assert_eq!(actual.max_water_output, expected.max_water_output);
         
         // //9x9x17
-        let expected = Turbine {
-            x_z: 9,
-            y: 17,
-            vents: 245,
-            dispersers: 48,
-            condensers: 127,
-            shaft_height: 8,
-            blades: 16,
-            coils: 4,
-            capacity: 18816000, //mB
-            max_flow: 7840000,  //mB/t
-            tank_volume: 648,
-            max_production: 44.8, //MJ   //TODO Actual is 44.79, but found is 44.8 exact.  Figure out why
-            max_water_output: 7872000, // mB/t
-            ..Default::default()
-        };
+        let expected = get_optimal_turbine(9,17);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         println!("{:?}", actual);
         assert_eq!(actual.dispersers, expected.dispersers);
@@ -596,20 +551,7 @@ mod tests {
         assert_eq!(actual.max_water_output, expected.max_water_output);
 
         // //17x17x18
-        // let expected = Turbine {
-        //     x_z: 17,
-        //     y: 18,
-        //     vents: 585,
-        //     dispersers: 224,
-        //     shaft_height: 10,
-        //     blades: 20,
-        //     coils: 5,
-        //     capacity: 0, //mB
-        //     max_flow: 0,  //mB/t
-        //     tank_volume: 0,
-        //     max_production: 133.71, //MJ
-        //     max_water_output: 0, // mB/t
-        // };
+        // let expected = get_turbine(17,18);
         // let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         // println!("{:?}", actual);
         // assert_eq!(actual.dispersers, expected.dispersers);

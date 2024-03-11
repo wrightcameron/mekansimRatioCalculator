@@ -11,8 +11,9 @@
         "capacity": 1600000,
         "max_flow": 256000,
         "tank_volume": 25,
-        "max_production": 73.13,
-        "max_water_output": 256000
+        "max_production": 182.83,
+        "max_water_output": 256000,
+        "energy_si_prefix": "Kilo"
     },
     {
         "x_z": 5,
@@ -27,7 +28,8 @@
         "max_flow": 1024000,
         "tank_volume": 100,
         "max_production": 2.92,
-        "max_water_output": 1024000
+        "max_water_output": 1024000,
+        "energy_si_prefix": "Mega"
     },
     {
         "x_z": 7,
@@ -42,7 +44,8 @@
         "max_flow": 4000000,
         "tank_volume": 294,
         "max_production": 17.14,
-        "max_water_output": 4032000
+        "max_water_output": 4032000,
+        "energy_si_prefix": "Mega"
     },
     {
         "x_z": 9,
@@ -56,8 +59,9 @@
         "capacity": 18816000,
         "max_flow": 7840000,
         "tank_volume": 648,
-        "max_production": 44.8,
-        "max_water_output": 7872000
+        "max_production": 44.79,
+        "max_water_output": 7872000,
+        "energy_si_prefix": "Mega"
     },
     {
         "x_z": 17,
@@ -72,6 +76,7 @@
         "max_flow": 0,
         "tank_volume": 0,
         "max_production": 133.71,
-        "max_water_output": 0
+        "max_water_output": 0,
+        "energy_si_prefix": "Mega"
     }
 ]

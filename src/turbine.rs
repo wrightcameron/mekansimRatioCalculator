@@ -13,6 +13,7 @@ const GENERAL_VENT_GAS_FLOW: i32 = 32000; // mB/t
 const GENERAL_CONDENSER_RATE: i32 = 64000; // mB/t
 const MAX_ENERGY_PER_STEAM: i32 = 10; // Joules/mB of steam
 const TURBINE_BLADES_PER_COIL: i32 = 4;
+const GAS_PER_TANK: i32 = 64000; // mB
 
 /// Struct Turbine
 #[derive(Deserialize, Debug, Clone)]
@@ -30,6 +31,8 @@ pub struct Turbine {
     pub tank_volume: i32,
     pub max_production: f32,
     pub max_water_output: i32,
+    //TODO Might need to break every water or energy value into type and value
+    pub energy_si_prefix: utils::MetricPrefix
 }
 
 impl Default for Turbine {
@@ -48,7 +51,28 @@ impl Default for Turbine {
             tank_volume: 0,
             max_production: 0.0,
             max_water_output: 0,
+            energy_si_prefix: utils::MetricPrefix::Base,
         }
+    }
+}
+
+impl PartialEq for Turbine {
+    fn eq(&self, other: &Self) -> bool {
+        let converted_max_production = utils::convert_to_prefix(self.max_production, &self.energy_si_prefix, &other.energy_si_prefix);
+        self.x_z == other.x_z && 
+        self.y == other.y &&
+        self.vents == other.vents &&
+        self.dispersers == other.dispersers &&
+        self.condensers == other.condensers &&
+        self.shaft_height == other.shaft_height &&
+        self.blades == other.blades &&
+        self.coils == other.coils &&
+        self.capacity == other.capacity &&
+        self.max_flow == other.max_flow &&
+        self.tank_volume == other.tank_volume &&
+        // 5x5x5 turbine in game has 182.93 kJ where formula returns 182.95.  Drop Accuracy for now.
+        utils::drop_tenth_decimal(converted_max_production) == utils::drop_tenth_decimal(other.max_production) &&
+        self.max_water_output == other.max_water_output
     }
 }
 
@@ -96,11 +120,11 @@ pub fn turbine_factory(
         shaft_height,
         blades,
         coils,
-        capacity: energy_capacity(x_z, y),
+        capacity: energy_capacity(x_z, y),  // TODO Wrong capacity is buckets not power
         max_flow: calc_max_flow_rate(x_z, shaft_height, vents),
         tank_volume: calc_lower_volume(x_z, shaft_height),
-        max_production: 0.0,
         max_water_output: max_water_output(condensers),
+        ..Default::default()
     }
 }
 
@@ -237,6 +261,7 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
     turbine.tank_volume = calc_lower_volume(x_z, turbine.shaft_height);
     turbine.max_production = max_energy_prod(turbine.shaft_height * 2, turbine.coils, x_z, turbine.shaft_height, turbine.vents);
     turbine.max_water_output = max_water_output(turbine.condensers);
+    turbine.capacity = steam_capacity(turbine.x_z, turbine.shaft_height);
     turbine
 }
 
@@ -315,10 +340,16 @@ fn calc_pressure_dispersers(x_z: i32) -> i32 {
     (x_z - 2).pow(2) - 1
 }
 
-///
+/// Storing(J) = TurbineWidth² × TurbineHeight × 16,000
 #[allow(dead_code)] 
-fn energy_capacity(x_z: i32, y: i32) -> i32 {
-    x_z.pow(2) * y * 16000
+fn energy_capacity(x_z: i32, shaft_height: i32) -> i32 {
+    // TODO Move magic number 16000 into const
+    x_z.pow(2) * shaft_height * 16000
+}
+
+/// Capacity(mB) = TurbineWidth² × TurbineRotorNumber x GAS_PER_TANK(64,000)
+fn steam_capacity(x_z: i32, shaft_height: i32) -> i32 {
+    x_z.pow(2) * shaft_height * GAS_PER_TANK
 }
 
 // fn get_production_rate() {
@@ -328,6 +359,7 @@ fn energy_capacity(x_z: i32, y: i32) -> i32 {
 // }
 
 // https://github.com/mekanism/Mekanism/blob/d22f6e2028009ed043f8b40c4ea1f7912be3002c/src/generators/java/mekanism/generators/common/content/turbine/TurbineMultiblockData.java#L244
+///  Production(J) = maxEnergyPerSteam x BladeRate x SteamFlow
 #[allow(dead_code)]
 fn max_energy_prod(blades: i32, coils: i32, x_z: i32, shaft_height: i32, vents: i32) -> f32 {
     MAX_ENERGY_PER_STEAM as f32
@@ -364,7 +396,6 @@ fn max_water_output(condensers: i32) -> i32 {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use serde_json;
     use std::fs;
@@ -495,52 +526,19 @@ mod tests {
         // 5x5x5 Turbine
         let expected = get_optimal_turbine(5,5);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
-        // assert_eq!(actual.capacity, 25920000);
-        assert_eq!(actual.max_flow, expected.max_flow);
-        assert_eq!(actual.tank_volume, expected.tank_volume);
-        assert_eq!(actual.dispersers, expected.dispersers);
-        assert_eq!(actual.vents, expected.vents);
-        assert_eq!(actual.coils, expected.coils);
-        // assert_eq!(actual.max_production, 3.83);
-        assert_eq!(actual.max_water_output, expected.max_water_output);
+        assert_eq!(actual, expected);
         // 5x5x9 Turbine
         let expected = get_optimal_turbine(5,9);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
-        assert_eq!(actual.dispersers, expected.dispersers);
-        assert_eq!(actual.vents, expected.vents);
-        assert_eq!(actual.coils, expected.coils);
-        // assert_eq!(actual.capacity, 25920000);
-        assert_eq!(actual.max_flow, expected.max_flow);
-        assert_eq!(actual.tank_volume, expected.tank_volume);
-        assert_eq!(utils::convert_to_mega(actual.max_production), expected.max_production);
-        assert_eq!(actual.max_water_output, expected.max_water_output);
-        // TODO Double check this
+        assert_eq!(actual, expected);
         // 7x7x13 Turbine
         let expected = get_optimal_turbine(7,13);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
-        println!("{:?}", actual);
-        assert_eq!(actual.dispersers, expected.dispersers);
-        assert_eq!(actual.vents, expected.vents);
-        assert_eq!(actual.condensers, expected.condensers);
-        assert_eq!(actual.coils, expected.coils);
-        assert_eq!(actual.tank_volume, expected.tank_volume);
-        // assert_eq!(actual.capacity, 25920000);
-        assert_eq!(utils::convert_to_mega(actual.max_production), expected.max_production);
-        assert_eq!(actual.max_flow, expected.max_flow);
-        assert_eq!(actual.max_water_output, expected.max_water_output);
-        
+        assert_eq!(actual, expected);
         // //9x9x17
         let expected = get_optimal_turbine(9,17);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
-        println!("{:?}", actual);
-        assert_eq!(actual.dispersers, expected.dispersers);
-        assert_eq!(actual.vents, expected.vents);
-        assert_eq!(actual.coils, expected.coils);
-        assert_eq!(actual.tank_volume, expected.tank_volume);
-        // assert_eq!(actual.capacity, 25920000);
-        assert_eq!(utils::convert_to_mega(actual.max_production), expected.max_production);
-        assert_eq!(actual.max_flow, expected.max_flow);
-        assert_eq!(actual.max_water_output, expected.max_water_output);
+        assert_eq!(actual, expected);
 
         // //17x17x18
         // let expected = get_turbine(17,18);

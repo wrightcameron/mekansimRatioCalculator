@@ -1,9 +1,8 @@
 use num::pow::Pow;
 use serde::Deserialize;
-use crate::utils::MetricPrefix::*;
 
 #[derive(Deserialize, Debug, Clone)]
-pub enum MetricPrefix {
+pub enum Prefix {
     Base,
     Kilo,
     Mega,
@@ -29,20 +28,20 @@ pub fn drop_tenth_decimal(n: f32) -> f32 {
     (n * 10.0).floor() / 10.0
 }
 
-pub fn convert_to_prefix(n: f32, start_prefix: &MetricPrefix, end_prefix: &MetricPrefix) -> f32 {
+pub fn convert_to_prefix(n: f32, start_prefix: &Prefix, end_prefix: &Prefix) -> f32 {
     let starting_power = match start_prefix {
-        Base => 0,
-        Kilo => 3,
-        Mega => 6,
-        Giga => 9,
-        Tera => 12
+        self::Prefix::Base => 0,
+        self::Prefix::Kilo => 3,
+        self::Prefix::Mega => 6,
+        self::Prefix::Giga => 9,
+        self::Prefix::Tera => 12
     };
     let end_power = match end_prefix {
-        Base => 0,
-        Kilo => 3,
-        Mega => 6,
-        Giga => 9,
-        Tera => 12
+        self::Prefix::Base => 0,
+        self::Prefix::Kilo => 3,
+        self::Prefix::Mega => 6,
+        self::Prefix::Giga => 9,
+        self::Prefix::Tera => 12
     };
     let difference: i32 = starting_power - end_power;
     let is_negative = difference < 0;
@@ -55,7 +54,7 @@ pub fn convert_to_prefix(n: f32, start_prefix: &MetricPrefix, end_prefix: &Metri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::MetricPrefix::*;
+    use crate::metricPrefix::Prefix::*;
     
     #[test]
     fn test_convert_to_prefix() {

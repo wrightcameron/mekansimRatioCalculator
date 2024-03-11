@@ -2,7 +2,7 @@ use log::debug;
 use std::cmp::{max, min};
 
 // TODO This is only used for testing right now, going to have warnings
-use crate::utils;
+use crate::metricPrefix;
 use serde::Deserialize;
 // TODO Check if we could get Deserialized in dev dependancies
 
@@ -32,7 +32,7 @@ pub struct Turbine {
     pub max_production: f32,
     pub max_water_output: i32,
     //TODO Might need to break every water or energy value into type and value
-    pub energy_si_prefix: utils::MetricPrefix
+    pub energy_si_prefix: metricPrefix::Prefix
 }
 
 impl Default for Turbine {
@@ -51,14 +51,14 @@ impl Default for Turbine {
             tank_volume: 0,
             max_production: 0.0,
             max_water_output: 0,
-            energy_si_prefix: utils::MetricPrefix::Base,
+            energy_si_prefix: metricPrefix::Prefix::Base,
         }
     }
 }
 
 impl PartialEq for Turbine {
     fn eq(&self, other: &Self) -> bool {
-        let converted_max_production = utils::convert_to_prefix(self.max_production, &self.energy_si_prefix, &other.energy_si_prefix);
+        let converted_max_production = metricPrefix::convert_to_prefix(self.max_production, &self.energy_si_prefix, &other.energy_si_prefix);
         self.x_z == other.x_z && 
         self.y == other.y &&
         self.vents == other.vents &&
@@ -71,7 +71,7 @@ impl PartialEq for Turbine {
         self.max_flow == other.max_flow &&
         self.tank_volume == other.tank_volume &&
         // 5x5x5 turbine in game has 182.93 kJ where formula returns 182.95.  Drop Accuracy for now.
-        utils::drop_tenth_decimal(converted_max_production) == utils::drop_tenth_decimal(other.max_production) &&
+        metricPrefix::drop_tenth_decimal(converted_max_production) == metricPrefix::drop_tenth_decimal(other.max_production) &&
         self.max_water_output == other.max_water_output
     }
 }
@@ -469,7 +469,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(utils::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
         //9x9x17
         let expected = Turbine {
             x_z: 9,
@@ -487,7 +487,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(utils::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
         //17x17x18
         let expected = Turbine {
             x_z: 17,
@@ -505,7 +505,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(utils::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
     }
 
     #[test]

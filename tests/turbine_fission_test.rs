@@ -4,21 +4,13 @@ mod turbine;
 mod fission;
 #[path = "../src/metricPrefix.rs"]
 mod metricPrefix;
-
-use serde_json;
-use std::fs;
-
-fn get_optimal_turbine(x_z: i32, y: i32) -> turbine::Turbine {
-    let json_string =
-        fs::read_to_string("data/optimal_turbines.json").expect("JSON file doesn't exist!");
-    let json: Vec<turbine::Turbine> = serde_json::from_str(&json_string).expect("JSON was not well-formatted");
-    json.iter().find(|x| x.x_z == x_z && x.y == y).unwrap().clone()
-}
+#[path = "../src/utils.rs"]
+mod utils;
 
 #[test]
 fn test_optimal_turbine_and_fission() {
     // 5x5x5 Turbine
-    let expected_turbine = get_optimal_turbine(5,5);
+    let expected_turbine = utils::get_optimal_turbine(5,5);
     // Get the optimal turbine
     let expected_turbine = turbine::optimal_turbine_with_dimensions(expected_turbine.x_z, expected_turbine.y);
     assert_eq!(expected_turbine.x_z, 5, "Optimal Turbine is not 5 x_z");

@@ -1,13 +1,13 @@
 use crate::turbine::Turbine;
 use std::cmp::min;
 use factor::factor;
-
+use serde::Deserialize;
 // use num_integer::Roots; 
 
 const FUEL_ASSEMBLY_FLUID_BURN_RATE: i32 = 20000; // mb/t of water
 
 /// Fission Reactor Struct, containing info on dimensions, block ammounts, and calculations
-#[derive(Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct FissionReactor {
     pub x: i32,
     pub z: i32,
@@ -80,13 +80,33 @@ pub fn optimal_fission_with_dimensions(x: i32, z: i32, y: i32) -> FissionReactor
 pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
     let fuel_assemblies = optimal_fuel_assemblies(turbine);
     //12 = aread of the inside = (x - 2) * (z-2) * (y - 2)
-    let reactor = FissionReactor {
+    let mut reactor = FissionReactor {
         fuel_assemblies: fuel_assemblies,
         ..Default::default()
     };
     // Get the largest factor of fuel assemblies, for now assume composite/not prime
-    let soma = factor::factor(fuel_assemblies as i64);
-    println!("Soma is {:?}", soma);
+    let mut soma: Vec<i64> = factor::factor(fuel_assemblies as i64);
+    // TODO Remove the factors that are too small for the size of the reactor
+    // let mut count = 0;
+    // for i in soma {
+    //     if i < 2 || i > 17 {
+    //         count += count;
+    //     }
+    // }
+    
+    let factor_length = soma.len();
+    println!("Soma is {:?}, length: {}, value at index: {}", soma, factor_length, soma[(factor_length/2) -1]);
+    let first_ratio = soma[(factor_length/2) -1] as i32;
+    let second_ratio = fuel_assemblies / first_ratio as i32;
+    println!("First ratio: {}, second ratio {}", first_ratio, second_ratio);
+    reactor.x = first_ratio + 2;
+    reactor.z = second_ratio + 2;
+    reactor.y = 3 + 2;  // TODO Figure out what the hell do for this 
+    reactor.control_rods = soma[(factor_length/2) + 1] as i32;
+    reactor.water_burn_rate = fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE;
+    // TODO What do we do with these ratios?
+    // TODO How do I calculate the hight.  3,4 is correct for the x,z but y in this case is 2, is it the distance between the two variables.
+    // No it shouldnt be cause all should lead to size of 2
     reactor
 }
 
@@ -119,13 +139,14 @@ fn fuel_assemblies_dimensions(x: i32, z: i32, y: i32) -> (i32, i32) {
 /// Get optimal number of fuel assemblies based on max flow and max water output of turbine
 #[allow(dead_code)]
 fn optimal_fuel_assemblies(turbine: &Turbine) -> i32 {
+    // Any decimal remainder truncated, which is fine the reactor burn rate should be less then turbine
     min(turbine.max_flow, turbine.max_water_output) / FUEL_ASSEMBLY_FLUID_BURN_RATE
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::utils;
     //Arrange
     //Act
     //Assert
@@ -137,19 +158,13 @@ mod tests {
     //     assert_eq!(calc_coils_needed(blades), expected_coils);
     // }
 
-    // fn test_optimal_fission_with_dimensions() {
-    //     let actual = FissionReactor {
-    //         x: 5,
-    //         z: 5,
-    //         y: 5,
-    //         fuel_assemblies: 10,
-    //         control_rods: 5,
-    //         water_burn_rate: fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE,
-    //     };
-    //     let expected = optimal_fission_with_dimensions(actual.x, actual.z, actual.y);
-    //     assert_eq!(actual.fuel_assemblies, expected.fuel_assemblies);
-    //     assert_eq!(actual.control_rods, expected.control_rods);
-    // }
+    #[test]
+    fn test_optimal_fission_with_dimensions() {
+        let actual = utils::get_optimal_reactor(5,6,5);
+        let expected = optimal_fission_with_dimensions(actual.x, actual.z, actual.y);
+        assert_eq!(actual.fuel_assemblies, expected.fuel_assemblies);
+        assert_eq!(actual.control_rods, expected.control_rods);
+    }
 
     #[test]
     fn test_turbine_based_fission_reactor() {

@@ -397,15 +397,7 @@ fn max_water_output(condensers: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
-    use std::fs;
-
-    fn get_optimal_turbine(x_z: i32, y: i32) -> Turbine {
-        let json_string =
-            fs::read_to_string("data/optimal_turbines.json").expect("JSON file doesn't exist!");
-        let json: Vec<Turbine> = serde_json::from_str(&json_string).expect("JSON was not well-formatted");
-        json.iter().find(|x| x.x_z == x_z && x.y == y).unwrap().clone()
-    }
+    use crate::utils;
 
     //Arrange
     //Act
@@ -524,19 +516,19 @@ mod tests {
     #[test]
     fn test_optimal_turbine_with_dimensions() {
         // 5x5x5 Turbine
-        let expected = get_optimal_turbine(5,5);
+        let expected = utils::get_optimal_turbine(5,5);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);
         // 5x5x9 Turbine
-        let expected = get_optimal_turbine(5,9);
+        let expected = utils::get_optimal_turbine(5,9);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);
         // 7x7x13 Turbine
-        let expected = get_optimal_turbine(7,13);
+        let expected = utils::get_optimal_turbine(7,13);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);
         // //9x9x17
-        let expected = get_optimal_turbine(9,17);
+        let expected = utils::get_optimal_turbine(9,17);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);
 
@@ -557,7 +549,7 @@ mod tests {
     #[test]
     fn test_turbine_based_on_fission_reactor() {
         //5x5x5
-        let expected = get_optimal_turbine(5,5);
+        let expected = utils::get_optimal_turbine(5,5);
         let water_burn_rate = 240000; //mb/t
         let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate);
         assert_eq!(actual.x_z, expected.x_z);

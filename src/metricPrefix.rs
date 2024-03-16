@@ -28,6 +28,10 @@ pub fn drop_tenth_decimal(n: f32) -> f32 {
     (n * 10.0).floor() / 10.0
 }
 
+pub fn drop_decimals(n: f32) -> f32 {
+    n.floor()
+}
+
 pub fn convert_to_prefix(n: f32, start_prefix: &Prefix, end_prefix: &Prefix) -> f32 {
     let starting_power = match start_prefix {
         self::Prefix::Base => 0,

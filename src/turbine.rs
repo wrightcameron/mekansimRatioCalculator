@@ -71,7 +71,8 @@ impl PartialEq for Turbine {
         self.max_flow == other.max_flow &&
         self.tank_volume == other.tank_volume &&
         // 5x5x5 turbine in game has 182.93 kJ where formula returns 182.95.  Drop Accuracy for now.
-        metricPrefix::drop_tenth_decimal(converted_max_production) == metricPrefix::drop_tenth_decimal(other.max_production) &&
+        // 9x9x17 turbine in game has 44,79, where fomular returned 44.8, dropping all decimals for now
+        metricPrefix::drop_decimals(converted_max_production) == metricPrefix::drop_decimals(other.max_production) &&
         self.max_water_output == other.max_water_output
     }
 }

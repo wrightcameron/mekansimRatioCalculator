@@ -1,0 +1,14 @@
+[
+    {
+        "x": 5,
+        "z": 6,
+        "y": 5,
+        "fuel_assemblies": 12,
+        "control_rods": 6,
+        "water_burn_rate": 240000,
+        "heat_capacity": 114000,
+        "fuel_surface_area": 60,
+        "boil_efficiency": 1.0,
+        "max_burn_rate": 12
+    }
+]

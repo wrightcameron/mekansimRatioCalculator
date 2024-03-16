@@ -5,9 +5,11 @@ use serde::Deserialize;
 // use num_integer::Roots; 
 
 const FUEL_ASSEMBLY_FLUID_BURN_RATE: i32 = 20000; // mb/t of water
+const CASING_HEAT_CAPACITY: i32 = 1000;
+const FISSION_SURFACE_AREA_TARGET: f32 = 4.0;
 
 /// Fission Reactor Struct, containing info on dimensions, block ammounts, and calculations
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct FissionReactor {
     pub x: i32,
     pub z: i32,
@@ -17,7 +19,7 @@ pub struct FissionReactor {
     pub water_burn_rate: i32,  // mb/t
     pub heat_capacity: i32,  // J/K
     pub fuel_surface_area: i32,  // m2
-    pub boil_efficiency: i32,  //This one will be hard to model
+    pub boil_efficiency: f32,  //This one will be hard to model
     pub max_burn_rate: i32,  // mB/t
     //TODO Need to add the burn rate calculations, like what the coolant flow rate will be
 }
@@ -33,7 +35,7 @@ impl Default for FissionReactor {
             water_burn_rate: 0,
             heat_capacity: 0,  // J/K
             fuel_surface_area: 0,  // m2
-            boil_efficiency: 0,  //This one will be hard to model
+            boil_efficiency: 0.0,  //This one will be hard to model
             max_burn_rate: 0,  // mB/t
         }
     }
@@ -85,7 +87,8 @@ pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
         ..Default::default()
     };
     // Get the largest factor of fuel assemblies, for now assume composite/not prime
-    let mut soma: Vec<i64> = factor::factor(fuel_assemblies as i64);
+    let mut factors: Vec<i64> = factor::factor(fuel_assemblies as i64);
+    println!("{:?}", factors);
     // TODO Remove the factors that are too small for the size of the reactor
     // let mut count = 0;
     // for i in soma {
@@ -93,17 +96,36 @@ pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
     //         count += count;
     //     }
     // }
+    let middle: usize = factors.len() / 2 - 1;
+    let first_value = factors[middle];
+    let second_value = factors[factors.len() - 1 - middle];
+    let first_value_index = factors.iter().position(|&x| x == first_value).unwrap();
+    let second_value_index = factors.iter().position(|&x| x == second_value).unwrap();
     
-    let factor_length = soma.len();
-    println!("Soma is {:?}, length: {}, value at index: {}", soma, factor_length, soma[(factor_length/2) -1]);
-    let first_ratio = soma[(factor_length/2) -1] as i32;
-    let second_ratio = fuel_assemblies / first_ratio as i32;
-    println!("First ratio: {}, second ratio {}", first_ratio, second_ratio);
-    reactor.x = first_ratio + 2;
-    reactor.z = second_ratio + 2;
-    reactor.y = 3 + 2;  // TODO Figure out what the hell do for this 
-    reactor.control_rods = soma[(factor_length/2) + 1] as i32;
+    let difference = 2;
+    let x = first_value as i32 + 2;
+    let z = second_value as i32 + 2;
+    let y = factors[first_value_index - 1] as i32 + 1 + 2;  // Plus 1 for controllers
+    
+    // Surface area
+    let mut surface_area = fuel_assemblies * 6;
+    let touching_assemblies = (factors[first_value_index - 1] * factors[second_value_index + 1]) as i32;
+    surface_area = surface_area - touching_assemblies;
+    // Boil Efficiency Rate
+    let avg_surface_area = surface_area / fuel_assemblies;
+    let mut boil_efficiency = avg_surface_area as f32 / FISSION_SURFACE_AREA_TARGET;
+    if boil_efficiency > 1.0 {
+        boil_efficiency = 1.0;
+    }
+    reactor.x = x;
+    reactor.z = z;
+    reactor.y = y;  // TODO Figure out what the hell do for this 
+    reactor.control_rods = factors[second_value_index + 1] as i32;
     reactor.water_burn_rate = fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE;
+    reactor.heat_capacity = heat_capacity(x, z, y);
+    reactor.fuel_surface_area = surface_area;
+    reactor.boil_efficiency = boil_efficiency;
+    reactor.max_burn_rate = fuel_assemblies;
     // TODO What do we do with these ratios?
     // TODO How do I calculate the hight.  3,4 is correct for the x,z but y in this case is 2, is it the distance between the two variables.
     // No it shouldnt be cause all should lead to size of 2
@@ -143,6 +165,51 @@ fn optimal_fuel_assemblies(turbine: &Turbine) -> i32 {
     min(turbine.max_flow, turbine.max_water_output) / FUEL_ASSEMBLY_FLUID_BURN_RATE
 }
 
+fn heat_capacity(x: i32, z: i32, y: i32) -> i32 {
+    let top_bottom = x * z * 2;
+    let front_back = x * (y - 2) * 2;
+    let left_right = (z - 2) * (y - 2) * 2;
+    (top_bottom + front_back + left_right) * CASING_HEAT_CAPACITY
+}
+
+// Find structure surface area https://github.com/mekanism/Mekanism/blob/1.20.4/src/generators/java/mekanism/generators/common/content/fission/FissionReactorValidator.java#L58
+
+// https://github.com/mekanism/Mekanism/blob/a3660901504ef724366224012bcea14be2cb734a/src/generators/java/mekanism/generators/common/content/fission/FissionReactorMultiblockData.java#L471
+fn boil_efficiency(reactor: &FissionReactor) -> f32 {
+    if reactor.fuel_assemblies == 0 {
+        return 0.0;
+    }
+    let avg_surface_area = structure_surface_area(reactor.fuel_assemblies) / reactor.fuel_assemblies;
+    0.0
+}
+
+fn structure_surface_area(fuel_assemblies: i32) -> i32 {
+    let surface_area = fuel_assemblies * 6;  // Fuel Assemblies have six sides
+    let factors: Vec<i64> = factor::factor(fuel_assemblies as i64);
+    println!("{:?}",factors);
+    0
+}
+
+fn optimal_structure(fuel_assemblies: i32) -> (i32, i32, i32) {
+    let factors: Vec<i64> = factor::factor(fuel_assemblies as i64);
+    // Get middle pair, by finding the middle of the list in this case 3,4
+    let factor_length: usize = factors.len();
+    let middle: usize = factor_length / 2 - 1;
+    println!("{:?}",factors);
+    println!("{:?}",middle);
+    let first_value = factors[middle];
+    let first_value_index = factors.iter().position(|&x| x == first_value).unwrap();
+    let second_value = factors[factor_length - 1 - middle];
+    let second_value_index = factors.iter().position(|&x| x == second_value).unwrap();
+    println!("{}, second index is {}",first_value_index, second_value_index);
+    println!("{}, pair is {}",first_value, second_value);
+    let difference = 2;
+    let x = first_value as i32 + 2;
+    let z = second_value as i32 + 2;
+    let y = difference + 1 + 2;  // Plus 1 for controllers
+    (x, z, y)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,12 +218,26 @@ mod tests {
     //Act
     //Assert
 
-    // #[test]
-    // fn test_calc_coils_needed() {
-    //     let blades = 10;
-    //     let expected_coils = 3;
-    //     assert_eq!(calc_coils_needed(blades), expected_coils);
-    // }
+    #[test]
+    fn test_optimal_structure(){
+        let actual = (5,6,5);
+        let expected = optimal_structure(12);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_structure_surface_area(){
+        let actual = 60;
+        let expected = structure_surface_area(12);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_heat_capacity() {
+        let actual = 114000;  // J/K
+        let expected = heat_capacity(5,6,5);
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn test_optimal_fission_with_dimensions() {
@@ -168,13 +249,15 @@ mod tests {
 
     #[test]
     fn test_turbine_based_fission_reactor() {
-        let actual_turbine = Turbine {
-            max_flow: 256000,
-            max_water_output: 256000,
-            ..Default::default()
-        };
-        let reactor = turbine_based_fission_reactor(&actual_turbine);
-        assert_eq!(reactor.fuel_assemblies, 12);
-        assert_eq!(reactor.control_rods, 6);
+        // 5x5x5 Turbine
+        let turbine: Turbine = utils::get_optimal_turbine(5,5);
+        let expected_reactor = utils::get_optimal_reactor(5,6,5);
+        let actual_reactor = turbine_based_fission_reactor(&turbine);
+        assert_eq!(actual_reactor, expected_reactor);
+        // 5x5x9 Turbine
+        let turbine = utils::get_optimal_turbine(5,9);
+        // let expected_reactor = utils::get_optimal_reactor(5,6,5);
+        let actual_reactor = turbine_based_fission_reactor(&turbine);
+        assert_eq!(actual_reactor, expected_reactor);
     }
 }

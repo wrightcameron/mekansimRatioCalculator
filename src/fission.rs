@@ -86,30 +86,47 @@ pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
         fuel_assemblies: fuel_assemblies,
         ..Default::default()
     };
-    // Get the largest factor of fuel assemblies, for now assume composite/not prime
-    let mut factors: Vec<i64> = factor::factor(fuel_assemblies as i64);
-    println!("{:?}", factors);
-    // TODO Remove the factors that are too small for the size of the reactor
-    // let mut count = 0;
-    // for i in soma {
-    //     if i < 2 || i > 17 {
-    //         count += count;
-    //     }
-    // }
-    let middle: usize = factors.len() / 2 - 1;
-    let first_value = factors[middle];
-    let second_value = factors[factors.len() - 1 - middle];
-    let first_value_index = factors.iter().position(|&x| x == first_value).unwrap();
-    let second_value_index = factors.iter().position(|&x| x == second_value).unwrap();
-    
-    let difference = 2;
-    let x = first_value as i32 + 2;
-    let z = second_value as i32 + 2;
-    let y = factors[first_value_index - 1] as i32 + 1 + 2;  // Plus 1 for controllers
-    
+    // Find larger than needed reactor, then shave off it.
+    let mut area = 0;
+    for i in 4..18 {
+        let x: i32 = i - 2;
+        let y: i32 = i - 2;
+        let z: i32 = i - 2;
+        let efficient_area: i32 = ((x * z) as f32 / 2.0).ceil() as i32 * y;
+        let control_rods = (x.pow(2) as f32 / 2.0).ceil() as i32;
+        if efficient_area > fuel_assemblies + control_rods {
+            reactor.x = x + 2;
+            reactor.y = y + 2;
+            reactor.z = z + 2;
+            reactor.control_rods = control_rods;
+            break;
+        }
+    }
+    // Check if x can be reduce
+    let x = reactor.x - 3;
+    let y: i32 = reactor.y - 2;
+    let z: i32 = reactor.z - 2;
+    area = (x * y * z) / 2;
+    let control_rods = x * z / 2;
+    if area >= fuel_assemblies + control_rods {
+        reactor.x = reactor.x - 1;
+        reactor.control_rods = control_rods;
+    } 
+    // Check if y can be reduce
+    let y = reactor.y - 3;
+    let x: i32 = reactor.x - 2;
+    let z: i32 = reactor.z - 2;
+    area = (x * y * z) / 2;
+    if area >= fuel_assemblies + control_rods {
+        reactor.y = reactor.y - 1;
+    }
     // Surface area
     let mut surface_area = fuel_assemblies * 6;
-    let touching_assemblies = (factors[first_value_index - 1] * factors[second_value_index + 1]) as i32;
+    let touching_assemblies = if reactor.y - 3 == 2 {
+        12
+    }else{
+        12 + reactor.y - 4 * 2
+    };
     surface_area = surface_area - touching_assemblies;
     // Boil Efficiency Rate
     let avg_surface_area = surface_area / fuel_assemblies;
@@ -117,12 +134,12 @@ pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
     if boil_efficiency > 1.0 {
         boil_efficiency = 1.0;
     }
-    reactor.x = x;
-    reactor.z = z;
-    reactor.y = y;  // TODO Figure out what the hell do for this 
-    reactor.control_rods = factors[second_value_index + 1] as i32;
+    // reactor.x = x;
+    // reactor.z = z;
+    // reactor.y = y;  // TODO Figure out what the hell do for this 
+    // reactor.control_rods = factors[second_value_index + 1] as i32;
     reactor.water_burn_rate = fuel_assemblies * FUEL_ASSEMBLY_FLUID_BURN_RATE;
-    reactor.heat_capacity = heat_capacity(x, z, y);
+    reactor.heat_capacity = heat_capacity(reactor.x, reactor.z, reactor.y);
     reactor.fuel_surface_area = surface_area;
     reactor.boil_efficiency = boil_efficiency;
     reactor.max_burn_rate = fuel_assemblies;
@@ -256,7 +273,7 @@ mod tests {
         assert_eq!(actual_reactor, expected_reactor);
         // 5x5x9 Turbine
         let turbine = utils::get_optimal_turbine(5,9);
-        // let expected_reactor = utils::get_optimal_reactor(5,6,5);
+        let expected_reactor = utils::get_optimal_reactor(7,7,7);
         let actual_reactor = turbine_based_fission_reactor(&turbine);
         assert_eq!(actual_reactor, expected_reactor);
     }

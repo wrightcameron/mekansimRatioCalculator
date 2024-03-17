@@ -10,5 +10,17 @@
         "fuel_surface_area": 60,
         "boil_efficiency": 1.0,
         "max_burn_rate": 12
+    },
+    {
+        "x": 7,
+        "z": 7,
+        "y": 7,
+        "fuel_assemblies": 51,
+        "control_rods": 13,
+        "water_burn_rate": 1020000,
+        "heat_capacity": 218000,
+        "fuel_surface_area": 230,
+        "boil_efficiency": 1.0,
+        "max_burn_rate": 51
     }
 ]

@@ -166,6 +166,7 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     turbine.tank_volume = calc_lower_volume(turbine.x_z, turbine.shaft_height);
     turbine.max_production = max_energy_prod(turbine.blades, turbine.coils, turbine.x_z, turbine.shaft_height, turbine.vents);
     turbine.max_water_output = max_water_output(turbine.condensers);
+    turbine.capacity = steam_capacity(turbine.x_z, turbine.shaft_height);
     // Calculate min height
     for y in (turbine.shaft_height + 3)..18 {
         let upper_y = y - turbine.shaft_height - 3;
@@ -528,7 +529,7 @@ mod tests {
         let expected = utils::get_optimal_turbine(7,13);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);
-        // //9x9x17
+        //9x9x17
         let expected = utils::get_optimal_turbine(9,17);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
         assert_eq!(actual, expected);

@@ -2,6 +2,8 @@ mod turbine;
 mod fission;
 mod metricPrefix;
 mod utils;
+mod setups;
+mod boiler;
 
 use std::io;
 

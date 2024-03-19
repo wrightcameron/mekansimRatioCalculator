@@ -16,9 +16,9 @@ impl Boiler {
     }
 }
 
-impl Default for Turbine {
-    fn default() -> Turbine {
-        Turbine {
+impl Default for Boiler {
+    fn default() -> Boiler {
+        Boiler {
             x: 0,
             z: 0,
             y: 0,
@@ -28,6 +28,7 @@ impl Default for Turbine {
     }
 }
 
+#[allow(dead_code)]
 pub fn optimal_boiler_with_dimensions(x: i32, z: i32, y: i32) -> Boiler {
     // TODO Need to throw an error, return nothing
     // Check if reactor's dimensions fall within an acceptable size
@@ -46,4 +47,5 @@ pub fn optimal_boiler_with_dimensions(x: i32, z: i32, y: i32) -> Boiler {
     } else if 18 < y {
         println!("Reactor height too large, max 18 blocks.");
     }
+    Boiler { ..Default::default()}
 }

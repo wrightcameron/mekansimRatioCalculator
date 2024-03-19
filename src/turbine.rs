@@ -1,6 +1,8 @@
 use log::debug;
 use std::cmp::{max, min};
 
+use num_format::{Locale, ToFormattedString};
+
 // TODO This is only used for testing right now, going to have warnings
 use crate::metricPrefix;
 use serde::Deserialize;
@@ -143,19 +145,26 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     //Tank Flow needs to be calculated to get as close to vent_flow as possible
     for length in 5..18 {
         // Maximum total height = min(2xLENGTH-1,18)
-        let max_height = min(2 * length - 1, 18);
+        // let max_height = min(2 * length - 1, 18);
         // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
         for shaft_height in 1..min(2 * length - 5, 14) {
             let dispersers = calc_pressure_dispersers(length);
+            if dispersers == 0 {
+                continue;
+            }
             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
-            if (vent_flow - tank_flow).abs() < difference {
+            let delta = (vent_flow - tank_flow).abs();
+            println!("Length: {}. with shaft_height {}, Dispersers {}",length.to_formatted_string(&Locale::en) ,shaft_height.to_formatted_string(&Locale::en), dispersers.to_formatted_string(&Locale::en) );
+            println!("vf {} - tf {} = {}",vent_flow.to_formatted_string(&Locale::en) ,tank_flow.to_formatted_string(&Locale::en) ,delta.to_formatted_string(&Locale::en) );
+            println!("Delta {delta}, smaller than {difference}, {}", delta < difference);
+            if delta < difference {
                 difference = (vent_flow - tank_flow).abs();
                 // Add all the values and blocks to the turbine being constructed
                 turbine.x_z = length;
                 turbine.dispersers = dispersers;
                 turbine.shaft_height = shaft_height;
-            } else {
-                break; 
+            } else if difference > vent_flow * 2{
+                break;
             }
         }
     }
@@ -169,20 +178,19 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     turbine.capacity = steam_capacity(turbine.x_z, turbine.shaft_height);
     // Calculate min height
     for y in (turbine.shaft_height + 3)..18 {
-        let upper_y = y - turbine.shaft_height - 3;
-        let internal_volume = upper_y * (turbine.x_z - 2).pow(2);
+        let upper_y = y - turbine.shaft_height - 2;
+        let internal_volume = (upper_y - 1) * (turbine.x_z - 2).pow(2);
         // Check if internal area big enough for all vents
         if internal_volume < (turbine.coils + turbine.condensers) {
             continue;
         }
         // Check if internal area big enough for both coils and condensers
-        let side_area = upper_y * (turbine.x_z - 2);
+        let side_area = upper_y * (turbine.x_z - 2) * 4;
         let top_area = (turbine.x_z - 2).pow(2);
-        if (side_area + top_area) < turbine.vents {
-            continue;
+        if (side_area + top_area) >= turbine.vents {
+            turbine.y = y;
+            break;
         }
-        turbine.y = y;
-        break;
     }
     turbine
 }
@@ -327,7 +335,7 @@ fn calc_max_vents(x_z: i32, y: i32, shaft_height: i32) -> i32 {
 }
 #[allow(dead_code)]
 fn calc_lower_volume(x_z: i32, shaft_height: i32) -> i32 {
-    x_z.pow(2) * shaft_height
+    (x_z).pow(2) * shaft_height
 }
 
 ///

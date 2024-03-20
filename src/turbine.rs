@@ -143,7 +143,7 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     let vent_flow = turbine.vents * GENERAL_VENT_GAS_FLOW;
     let mut difference = i32::MAX;
     //Tank Flow needs to be calculated to get as close to vent_flow as possible
-    for length in 5..18 {
+    for length in (5..18).step_by(2) {
         // Maximum total height = min(2xLENGTH-1,18)
         // let max_height = min(2 * length - 1, 18);
         // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
@@ -154,16 +154,16 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
             }
             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
             let delta = (vent_flow - tank_flow).abs();
-            println!("Length: {}. with shaft_height {}, Dispersers {}",length.to_formatted_string(&Locale::en) ,shaft_height.to_formatted_string(&Locale::en), dispersers.to_formatted_string(&Locale::en) );
-            println!("vf {} - tf {} = {}",vent_flow.to_formatted_string(&Locale::en) ,tank_flow.to_formatted_string(&Locale::en) ,delta.to_formatted_string(&Locale::en) );
-            println!("Delta {delta}, smaller than {difference}, {}", delta < difference);
             if delta < difference {
                 difference = (vent_flow - tank_flow).abs();
+                debug!("Length: {}. with shaft_height {}, Dispersers {}",length.to_formatted_string(&Locale::en) ,shaft_height.to_formatted_string(&Locale::en), dispersers.to_formatted_string(&Locale::en) );
+                debug!("vf {} - tf {} = {}",vent_flow.to_formatted_string(&Locale::en) ,tank_flow.to_formatted_string(&Locale::en) ,delta.to_formatted_string(&Locale::en) );
+                debug!("Delta {delta}, smaller than {difference}, {}", delta < difference);
                 // Add all the values and blocks to the turbine being constructed
                 turbine.x_z = length;
                 turbine.dispersers = dispersers;
                 turbine.shaft_height = shaft_height;
-            } else if difference > vent_flow * 2{
+            } else if difference > vent_flow * 2 {
                 break;
             }
         }

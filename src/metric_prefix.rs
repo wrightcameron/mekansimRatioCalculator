@@ -58,7 +58,7 @@ pub fn convert_to_prefix(n: f32, start_prefix: &Prefix, end_prefix: &Prefix) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metricPrefix::Prefix::*;
+    use crate::metric_prefix::Prefix::*;
     
     #[test]
     fn test_convert_to_prefix() {

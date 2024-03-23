@@ -57,13 +57,20 @@ impl Default for FissionReactor {
     }
 }
 
+// TODO Maybe move these to its own file, and have them reference Turbines, not be part of the Turbine class
 impl FissionReactor {
     /// Pretty print for Fission Reactor struct
-    #[allow(dead_code)]
     pub fn print(&self){
         println!("A {}x{}x{} Fission Reactor", self.x, self.z, self.y);
         println!("- Fuel Assemblies {}, and Control Rods {}", self.fuel_assemblies, self.control_rods);
-        println!("- Water Burn Rate {} mb/t \n", self.water_burn_rate);
+        println!("- Water Burn Rate {} mb/t", self.water_burn_rate);
+        println!("- Fuel Surface Area {} (m2), Boil Efficiency {}", self.fuel_surface_area, self.boil_efficiency);
+        println!("- Max Burn Rate {} mB/t", self.max_burn_rate);
+        println!("- Heat Capacity {} J/K", self.heat_capacity);
+    }
+
+    pub fn summarize(&self) -> String {
+        format!("A {}x{}x{} Fission Reactor", self.x, self.z, self.y)
     }
 }
 

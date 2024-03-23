@@ -1,12 +1,9 @@
 use log::debug;
 use std::cmp::{max, min};
+use serde::Deserialize;  // TODO Check if we could get Deserialized in dev dependancies
 
-use num_format::{Locale, ToFormattedString};
-
-// TODO This is only used for testing right now, going to have warnings
 use crate::metric_prefix;
-use serde::Deserialize;
-// TODO Check if we could get Deserialized in dev dependancies
+
 
 // type blocks = i32;
 
@@ -79,8 +76,19 @@ impl PartialEq for Turbine {
     }
 }
 
+// impl setups::Setup for Turbine {
+//     fn print(&self){
+//         println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
+//         println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
+//         println!("- Vents: {}",self.vents);
+//         println!("- Dispersers: {}", self.dispersers);
+//         println!("- Condensers: {}", self.condensers);
+//         println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
+//         println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
+//     }
+// }
+
 impl Turbine {
-    #[allow(dead_code)]
     pub fn print(&self){
         println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
         println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
@@ -89,6 +97,10 @@ impl Turbine {
         println!("- Condensers: {}", self.condensers);
         println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
         println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
+    }
+
+    pub fn summarize(&self) -> String{
+        format!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y)
     }
 }
 
@@ -141,7 +153,6 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine,
     // Get Max Water Flow, which is more effort
     turbine.vents = (water_burn_rate as f32 / GENERAL_VENT_GAS_FLOW as f32).ceil() as i32;
     let vent_flow = turbine.vents * GENERAL_VENT_GAS_FLOW;
-    let mut difference = i32::MAX;
     let mut power_production = 0.0;
     //Tank Flow needs to be calculated to get as close to vent_flow as possible
     'outer: for length in (5..18).step_by(2) {
@@ -154,7 +165,8 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine,
             let blades = shaft_height * 2;
             let coils = calc_coils_needed(blades);
             let current_power = max_energy_prod(blades, coils, length, shaft_height, turbine.vents);
-            println!("Length: {length}/{shaft_height}, Old Power {power_production}, current power {current_power}");
+            debug!("Tank Flow {tank_flow}, Vent Flow {vent_flow}");
+            debug!("Length: {length}/{shaft_height}, Old Power {power_production}, current power {current_power}");
             // TODO This doesn't optimize power production
             if tank_flow >= vent_flow {
                 turbine.x_z = length;

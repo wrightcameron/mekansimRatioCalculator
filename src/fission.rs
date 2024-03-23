@@ -94,16 +94,14 @@ pub fn optimal_fission_with_dimensions(x: i32, z: i32, y: i32) -> FissionReactor
 }
 
 /// Create fission reactor based on max output/max flow from turbine
-#[allow(dead_code)]
-pub fn turbine_based_fission_reactor(turbine: &Turbine) -> FissionReactor {
-    let fuel_assemblies = optimal_fuel_assemblies(turbine);
+pub fn turbine_based_fission_reactor(fuel_assemblies: i32) -> FissionReactor {
     //12 = aread of the inside = (x - 2) * (z-2) * (y - 2)
     let mut reactor = FissionReactor {
         fuel_assemblies: fuel_assemblies,
         ..Default::default()
     };
     // Find larger than needed reactor, then shave off it.
-    let mut area = 0;
+    let mut area;
     for i in 4..18 {
         let x: i32 = i - 2;
         let y: i32 = i - 2;
@@ -198,8 +196,7 @@ fn fuel_assemblies_dimensions(x: i32, z: i32, y: i32) -> (i32, i32) {
 // }
 
 /// Get optimal number of fuel assemblies based on max flow and max water output of turbine
-#[allow(dead_code)]
-fn optimal_fuel_assemblies(turbine: &Turbine) -> i32 {
+pub fn optimal_fuel_assemblies(turbine: &Turbine) -> i32 {
     // Any decimal remainder truncated, which is fine the reactor burn rate should be less then turbine
     min(turbine.max_flow, turbine.max_water_output) / FUEL_ASSEMBLY_FLUID_BURN_RATE
 }
@@ -291,12 +288,19 @@ mod tests {
         // 5x5x5 Turbine
         let turbine: Turbine = utils::get_optimal_turbine(5,5);
         let expected_reactor = utils::get_optimal_reactor(5,6,5);
-        let actual_reactor = turbine_based_fission_reactor(&turbine);
+        let fuel_assemblies = super::optimal_fuel_assemblies(&turbine);
+        let actual_reactor = turbine_based_fission_reactor(fuel_assemblies);
         assert_eq!(actual_reactor, expected_reactor);
         // 5x5x9 Turbine
         let turbine = utils::get_optimal_turbine(5,9);
         let expected_reactor = utils::get_optimal_reactor(7,7,7);
-        let actual_reactor = turbine_based_fission_reactor(&turbine);
+        let fuel_assemblies = super::optimal_fuel_assemblies(&turbine);
+        let actual_reactor = turbine_based_fission_reactor(fuel_assemblies);
         assert_eq!(actual_reactor, expected_reactor);
+        // 153 fuel assemblies
+        let expected_reactor = FissionReactor { fuel_assemblies: 153, water_burn_rate: 3060000, ..Default::default() };
+        let actual_reactor = turbine_based_fission_reactor(expected_reactor.fuel_assemblies );
+        assert_eq!(actual_reactor.fuel_assemblies, expected_reactor.fuel_assemblies);
+        assert_eq!(actual_reactor.water_burn_rate, expected_reactor.water_burn_rate);
     }
 }

@@ -4,7 +4,7 @@ use std::cmp::{max, min};
 use num_format::{Locale, ToFormattedString};
 
 // TODO This is only used for testing right now, going to have warnings
-use crate::metricPrefix;
+use crate::metric_prefix;
 use serde::Deserialize;
 // TODO Check if we could get Deserialized in dev dependancies
 
@@ -34,7 +34,7 @@ pub struct Turbine {
     pub max_production: f32,
     pub max_water_output: i32,
     //TODO Might need to break every water or energy value into type and value
-    pub energy_si_prefix: metricPrefix::Prefix
+    pub energy_si_prefix: metric_prefix::Prefix
 }
 
 impl Default for Turbine {
@@ -53,14 +53,14 @@ impl Default for Turbine {
             tank_volume: 0,
             max_production: 0.0,
             max_water_output: 0,
-            energy_si_prefix: metricPrefix::Prefix::Base,
+            energy_si_prefix: metric_prefix::Prefix::Base,
         }
     }
 }
 
 impl PartialEq for Turbine {
     fn eq(&self, other: &Self) -> bool {
-        let converted_max_production = metricPrefix::convert_to_prefix(self.max_production, &self.energy_si_prefix, &other.energy_si_prefix);
+        let converted_max_production = metric_prefix::convert_to_prefix(self.max_production, &self.energy_si_prefix, &other.energy_si_prefix);
         self.x_z == other.x_z && 
         self.y == other.y &&
         self.vents == other.vents &&
@@ -74,7 +74,7 @@ impl PartialEq for Turbine {
         self.tank_volume == other.tank_volume &&
         // 5x5x5 turbine in game has 182.93 kJ where formula returns 182.95.  Drop Accuracy for now.
         // 9x9x17 turbine in game has 44,79, where fomular returned 44.8, dropping all decimals for now
-        metricPrefix::drop_decimals(converted_max_production) == metricPrefix::drop_decimals(other.max_production) &&
+        metric_prefix::drop_decimals(converted_max_production) == metric_prefix::drop_decimals(other.max_production) &&
         self.max_water_output == other.max_water_output
     }
 }
@@ -132,7 +132,7 @@ pub fn turbine_factory(
 }
 
 // Return most optimal turbine based on number of fuel assemblies of existing fission reactor
-pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
+pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine, &'static str> {
     let mut turbine: Turbine = Turbine { ..Default::default() };
     // Get Max Water Output
     turbine.condensers = (water_burn_rate as f32 / GENERAL_CONDENSER_RATE as f32 ).ceil() as i32;
@@ -142,39 +142,37 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
     turbine.vents = (water_burn_rate as f32 / GENERAL_VENT_GAS_FLOW as f32).ceil() as i32;
     let vent_flow = turbine.vents * GENERAL_VENT_GAS_FLOW;
     let mut difference = i32::MAX;
+    let mut power_production = 0.0;
     //Tank Flow needs to be calculated to get as close to vent_flow as possible
-    for length in (5..18).step_by(2) {
+    'outer: for length in (5..18).step_by(2) {
+        let dispersers = calc_pressure_dispersers(length);
         // Maximum total height = min(2xLENGTH-1,18)
         // let max_height = min(2 * length - 1, 18);
         // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
         for shaft_height in 1..min(2 * length - 5, 14) {
-            let dispersers = calc_pressure_dispersers(length);
-            if dispersers == 0 {
-                continue;
-            }
             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
-            let delta = (vent_flow - tank_flow).abs();
-            if delta < difference {
-                difference = (vent_flow - tank_flow).abs();
-                debug!("Length: {}. with shaft_height {}, Dispersers {}",length.to_formatted_string(&Locale::en) ,shaft_height.to_formatted_string(&Locale::en), dispersers.to_formatted_string(&Locale::en) );
-                debug!("vf {} - tf {} = {}",vent_flow.to_formatted_string(&Locale::en) ,tank_flow.to_formatted_string(&Locale::en) ,delta.to_formatted_string(&Locale::en) );
-                debug!("Delta {delta}, smaller than {difference}, {}", delta < difference);
-                // Add all the values and blocks to the turbine being constructed
+            let blades = shaft_height * 2;
+            let coils = calc_coils_needed(blades);
+            let current_power = max_energy_prod(blades, coils, length, shaft_height, turbine.vents);
+            println!("Length: {length}/{shaft_height}, Old Power {power_production}, current power {current_power}");
+            // TODO This doesn't optimize power production
+            if tank_flow >= vent_flow {
                 turbine.x_z = length;
                 turbine.dispersers = dispersers;
                 turbine.shaft_height = shaft_height;
-            } else if difference > vent_flow * 2 {
-                break;
+                break 'outer;
+            } else {
+                power_production = current_power;
             }
         }
     }
-
+    //TODO Need to scale up the size for alittle extra power production
     turbine.blades = turbine.shaft_height * 2;
     turbine.coils = calc_coils_needed(turbine.blades);
     turbine.max_flow = calc_max_flow_rate(turbine.x_z, turbine.shaft_height, turbine.vents);
     turbine.tank_volume = calc_lower_volume(turbine.x_z, turbine.shaft_height);
     turbine.max_production = max_energy_prod(turbine.blades, turbine.coils, turbine.x_z, turbine.shaft_height, turbine.vents);
-    turbine.max_water_output = max_water_output(turbine.condensers);
+    // turbine.max_water_output = max_water_output(turbine.condensers);
     turbine.capacity = steam_capacity(turbine.x_z, turbine.shaft_height);
     // Calculate min height
     for y in (turbine.shaft_height + 3)..18 {
@@ -192,30 +190,31 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Turbine {
             break;
         }
     }
-    turbine
+    Ok(turbine)
 }
 
 //FLOW = min(1, TURBINE_STORED_AMOUNT / MAX_RATE) *
 //          (TURBINE_STORED_AMOUNT/TURBINE_MAX_STORED_AMOUNT) * MAX_RATE
 
 ///  Return most optimal turbine only based on user inputing dimensions
-#[allow(dead_code)]
-pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
+pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Result<Turbine, &'static str> {
     let mut turbine = Turbine { ..Default::default() };
     // Check if turbine's dimensions fall within an acceptable size
-    // TODO Need to throw an error, return nothing
     if x_z < 5 {
-        println!("Turbine length and width too small, min 5 by 5 blocks.");
+        return Err("Turbine length and width too small, min 5 by 5 blocks.");
     } else if 17 < x_z {
-        println!("Turbine length and width too large, max 17 by 17 blocks.");
+        return Err("Turbine length and width too large, max 17 by 17 blocks.");
     }
 
     if y < 5 {
-        println!("Turbine height too small, min 5 blocks.");
+        return Err("Turbine height too small, min 5 blocks.");
     } else if 17 < y {
-        println!("Turbine height too large, max 18 blocks.");
+        return Err("Turbine height too large, max 18 blocks.");
     }
-
+    // Length can't be even
+    if x_z % 2 == 0 {
+        return Err("Turbine Length can't be even, otherwise shaft can't be in center.");
+    }
     // Calculate the max flow, and max water output for each shaft_height of the turbine.
     let info: Vec<TurbineFlow> = (1..min(2 * y - 5, 14))
         .map(|shaft_height: i32| {
@@ -272,7 +271,7 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Turbine {
     turbine.max_production = max_energy_prod(turbine.shaft_height * 2, turbine.coils, x_z, turbine.shaft_height, turbine.vents);
     turbine.max_water_output = max_water_output(turbine.condensers);
     turbine.capacity = steam_capacity(turbine.x_z, turbine.shaft_height);
-    turbine
+    Ok(turbine)
 }
 
 fn best_vent_count(turbine: &Turbine) -> (i32, f32) {
@@ -407,7 +406,7 @@ fn max_water_output(condensers: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils;
+    use crate::{fission, utils};
 
     //Arrange
     //Act
@@ -471,7 +470,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metric_prefix::convert_to_mega(actual), expected.max_production);
         //9x9x17
         let expected = Turbine {
             x_z: 9,
@@ -489,7 +488,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metric_prefix::convert_to_mega(actual), expected.max_production);
         //17x17x18
         let expected = Turbine {
             x_z: 17,
@@ -507,7 +506,7 @@ mod tests {
             expected.shaft_height,
             expected.vents,
         );
-        assert_eq!(metricPrefix::convert_to_mega(actual), expected.max_production);
+        assert_eq!(metric_prefix::convert_to_mega(actual), expected.max_production);
     }
 
     #[test]
@@ -527,19 +526,19 @@ mod tests {
     fn test_optimal_turbine_with_dimensions() {
         // 5x5x5 Turbine
         let expected = utils::get_optimal_turbine(5,5);
-        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
         assert_eq!(actual, expected);
         // 5x5x9 Turbine
         let expected = utils::get_optimal_turbine(5,9);
-        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
         assert_eq!(actual, expected);
         // 7x7x13 Turbine
         let expected = utils::get_optimal_turbine(7,13);
-        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
         assert_eq!(actual, expected);
         //9x9x17
         let expected = utils::get_optimal_turbine(9,17);
-        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
         assert_eq!(actual, expected);
 
         // //17x17x18
@@ -561,7 +560,13 @@ mod tests {
         //5x5x5
         let expected = utils::get_optimal_turbine(5,5);
         let water_burn_rate = 240000; //mb/t
-        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate);
-        assert_eq!(actual.x_z, expected.x_z);
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        // 153 fuel assembly reactor
+        let expected_fuel_assemblies = 153;
+        let expected_water_burn = 3060000;
+        let actual: Turbine = turbine_based_on_fission_reactor(expected_water_burn).unwrap();
+        let actual_fuel_assemblies = fission::optimal_fuel_assemblies(&actual);
+        assert_eq!(actual_fuel_assemblies, expected_fuel_assemblies);
     }
 }

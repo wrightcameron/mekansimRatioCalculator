@@ -11,8 +11,12 @@ impl Boiler {
     /// Pretty print for Boiler struct
     #[allow(dead_code)]
     pub fn print(&self){
-        println!("A {}x{}x{} Fission Reactor", self.x, self.z, self.y);
+        println!("A {}x{}x{} Boiler", self.x, self.z, self.y);
         println!("- Super Heating Elements {}", self.heating_element);
+    }
+
+    pub fn summarize(&self) -> String {
+        format!("{}x{}x{} Boiler", self.x, self.z, self.y)
     }
 }
 

@@ -1,8 +1,8 @@
 use log::debug;
 use std::cmp::{max, min};
-use serde::Deserialize;  // TODO Check if we could get Deserialized in dev dependancies
+use serde::{Deserialize, Serialize};  // TODO Check if we could get Deserialized in dev dependancies
 
-use crate::metric_prefix;
+use crate::{fission, metric_prefix};
 
 
 // type blocks = i32;
@@ -15,7 +15,7 @@ const TURBINE_BLADES_PER_COIL: i32 = 4;
 const GAS_PER_TANK: i32 = 64000; // mB
 
 /// Struct Turbine
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Turbine {
     pub x_z: i32,
     pub y: i32,
@@ -76,18 +76,6 @@ impl PartialEq for Turbine {
     }
 }
 
-// impl setups::Setup for Turbine {
-//     fn print(&self){
-//         println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
-//         println!("- Shaft {}, Blades {}, and Coils {}", self.shaft_height, self.blades, self.coils);
-//         println!("- Vents: {}",self.vents);
-//         println!("- Dispersers: {}", self.dispersers);
-//         println!("- Condensers: {}", self.condensers);
-//         println!("- Max Flow Rate {} mB/t, Max Water Output {} mB /t", self.max_flow, self.max_water_output);
-//         println!("- Capacity {} mJ, Max Energy Production {} mJ\n", self.capacity, self.max_production);
-//     }
-// }
-
 impl Turbine {
     pub fn print(&self){
         println!("A {}x{}x{} Turbine", self.x_z, self.x_z, self.y);
@@ -144,6 +132,42 @@ pub fn turbine_factory(
 }
 
 // Return most optimal turbine based on number of fuel assemblies of existing fission reactor
+// pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine, &'static str> {
+//     let mut turbine: Turbine = Turbine { ..Default::default() };
+//     // Get Max Water Output
+//     turbine.condensers = (water_burn_rate as f32 / GENERAL_CONDENSER_RATE as f32 ).ceil() as i32;
+//     turbine.max_water_output = max_water_output(turbine.condensers);
+
+//     // Get Max Water Flow, which is more effort
+//     turbine.vents = (water_burn_rate as f32 / GENERAL_VENT_GAS_FLOW as f32).ceil() as i32;
+//     let vent_flow = turbine.vents * GENERAL_VENT_GAS_FLOW;
+//     let mut power_production = 0.0;
+//     //Tank Flow needs to be calculated to get as close to vent_flow as possible
+//     'outer: for length in (5..18).step_by(2) {
+//         let dispersers = calc_pressure_dispersers(length);
+//         // Maximum total height = min(2xLENGTH-1,18)
+//         // let max_height = min(2 * length - 1, 18);
+//         // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
+//         for shaft_height in 1..min(2 * length - 5, 14) {
+//             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
+//             let blades = shaft_height * 2;
+//             let coils = calc_coils_needed(blades);
+//             let current_power = max_energy_prod(blades, coils, length, shaft_height, turbine.vents);
+//             debug!("Tank Flow {tank_flow}, Vent Flow {vent_flow}");
+//             debug!("Length: {length}/{shaft_height}, Old Power {power_production}, current power {current_power}");
+//             // TODO This doesn't optimize power production
+//             if tank_flow >= vent_flow {
+//                 turbine.x_z = length;
+//                 turbine.dispersers = dispersers;
+//                 turbine.shaft_height = shaft_height;
+//                 break 'outer;
+//             } else {
+//                 power_production = current_power;
+//             }
+//         }
+//     }
+
+// Return most optimal turbine based on number of fuel assemblies of existing fission reactor
 pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine, &'static str> {
     let mut turbine: Turbine = Turbine { ..Default::default() };
     // Get Max Water Output
@@ -160,23 +184,55 @@ pub fn turbine_based_on_fission_reactor(water_burn_rate: i32) -> Result<Turbine,
         // Maximum total height = min(2xLENGTH-1,18)
         // let max_height = min(2 * length - 1, 18);
         // Maximum shaft height = min(2xLENGTH-5,14) [so blades don't touch sides]
-        for shaft_height in 1..min(2 * length - 5, 14) {
+        let mut all_shaft_heights: Vec<Turbine> = (1..min(2 * length - 5, 14)).map(| shaft_height | {
+            let mut temp_turbine: Turbine = Turbine { ..Default::default() };
+
             let tank_flow = dispersers * GENERAL_DISPERSER_GAS_FLOW * calc_lower_volume(length, shaft_height);
-            let blades = shaft_height * 2;
-            let coils = calc_coils_needed(blades);
-            let current_power = max_energy_prod(blades, coils, length, shaft_height, turbine.vents);
-            debug!("Tank Flow {tank_flow}, Vent Flow {vent_flow}");
-            debug!("Length: {length}/{shaft_height}, Old Power {power_production}, current power {current_power}");
-            // TODO This doesn't optimize power production
-            if tank_flow >= vent_flow {
-                turbine.x_z = length;
-                turbine.dispersers = dispersers;
-                turbine.shaft_height = shaft_height;
-                break 'outer;
-            } else {
-                power_production = current_power;
-            }
+            temp_turbine.x_z = length;
+            temp_turbine.shaft_height = shaft_height;
+            temp_turbine.dispersers = dispersers;
+            temp_turbine.blades = shaft_height * 2;
+            temp_turbine.coils = calc_coils_needed(temp_turbine.blades);
+            temp_turbine.max_production = max_energy_prod(temp_turbine.blades, temp_turbine.coils, length, shaft_height, turbine.vents);
+            temp_turbine.max_flow = calc_max_flow_rate(length, shaft_height, turbine.vents);
+            temp_turbine.max_water_output = max_water_output(turbine.condensers);
+            
+            
+            
+            
+            
+            return temp_turbine;
+            
+        }).collect();
+        // To level the field, could also remove turbines that wouldn't meet the water burn rate before this point, then get max production.
+        all_shaft_heights.retain( | x | {
+            min(x.max_flow, x.max_water_output) >= water_burn_rate
+        });
+        if all_shaft_heights.len() == 0 {
+            println!("all shaft heights is empty.");
+            continue;
         }
+        for i in all_shaft_heights.iter() {
+            println!("{:?}",i);
+            let tank_flow: i32 = calc_pressure_dispersers(i.x_z)
+                * GENERAL_DISPERSER_GAS_FLOW
+                * calc_lower_volume(i.x_z, i.shaft_height);
+            let vent_flow: i32 = turbine.vents * GENERAL_VENT_GAS_FLOW;
+            // println!("Ratio {}", min(i.max_flow, i.max_water_output) as f32 / i.max_production.round());
+            println!("Ratio {}",(vent_flow as f32 / tank_flow as f32) * i.max_production);
+        }
+        let mut  best_turbine = all_shaft_heights.iter().min_by_key( | x | x.max_production.round() as i32 ).unwrap().clone();
+        best_turbine.max_flow = calc_max_flow_rate(length, best_turbine.shaft_height, turbine.vents);
+        best_turbine.max_water_output = max_water_output(turbine.condensers);
+        let expected_water_burn_rate = min(best_turbine.max_flow, best_turbine.max_water_output);
+        if expected_water_burn_rate >= water_burn_rate {
+            turbine.shaft_height = best_turbine.shaft_height;
+            turbine.max_production = best_turbine.max_production;
+            turbine.x_z = length;
+            turbine.dispersers = dispersers;
+            break;
+        }
+        // Check if best_turbine atleast meets the water_burn_rate
     }
     //TODO Need to scale up the size for alittle extra power production
     turbine.blades = turbine.shaft_height * 2;
@@ -220,7 +276,7 @@ pub fn optimal_turbine_with_dimensions(x_z: i32, y: i32) -> Result<Turbine, &'st
 
     if y < 5 {
         return Err("Turbine height too small, min 5 blocks.");
-    } else if 17 < y {
+    } else if 18 < y {
         return Err("Turbine height too large, max 18 blocks.");
     }
     // Length can't be even
@@ -552,19 +608,22 @@ mod tests {
         let expected = utils::get_optimal_turbine(9,17);
         let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
         assert_eq!(actual, expected);
-
-        // //17x17x18
-        // let expected = get_turbine(17,18);
-        // let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y);
-        // println!("{:?}", actual);
-        // assert_eq!(actual.dispersers, expected.dispersers);
-        // assert_eq!(actual.vents, expected.vents);
-        // assert_eq!(actual.coils, expected.coils);
-        // assert_eq!(actual.tank_volume, expected.tank_volume);
-        // // assert_eq!(actual.capacity, 25920000);
-        // assert_eq!(utils::convert_to_mega(actual.max_production), expected.max_production);
-        // assert_eq!(actual.max_flow, expected.max_flow);
-        // assert_eq!(actual.max_water_output, expected.max_water_output);
+        //11x11x18
+        let expected = utils::get_optimal_turbine(11,18);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
+        assert_eq!(actual, expected);
+        //13x13x18
+        let expected = utils::get_optimal_turbine(13,18);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
+        assert_eq!(actual, expected);
+        //15x15x18
+        let expected = utils::get_optimal_turbine(15,18);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
+        assert_eq!(actual, expected);
+        //17x17x18
+        let expected = utils::get_optimal_turbine(17,18);
+        let actual = optimal_turbine_with_dimensions(expected.x_z, expected.y).unwrap();
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -580,5 +639,41 @@ mod tests {
         let actual: Turbine = turbine_based_on_fission_reactor(expected_water_burn).unwrap();
         let actual_fuel_assemblies = fission::optimal_fuel_assemblies(&actual);
         assert_eq!(actual_fuel_assemblies, expected_fuel_assemblies);
+
+        // 5x5x9 Turbine
+        let expected = utils::get_optimal_turbine(5,5);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        // 7x7x13 Turbine
+        let expected = utils::get_optimal_turbine(7,13);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        //9x9x17
+        let expected = utils::get_optimal_turbine(9,17);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        //11x11x18
+        let expected = utils::get_optimal_turbine(11,18);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        //13x13x18
+        let expected = utils::get_optimal_turbine(13,18);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        //15x15x18
+        let expected = utils::get_optimal_turbine(15,18);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
+        //17x17x18
+        let expected = utils::get_optimal_turbine(17,18);
+        let water_burn_rate = min(expected.max_flow, expected.max_water_output); //mb/t
+        let actual: Turbine = turbine_based_on_fission_reactor(water_burn_rate).unwrap();
+        assert_eq!(actual, expected);
     }
 }

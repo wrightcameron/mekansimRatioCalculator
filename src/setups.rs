@@ -1,7 +1,7 @@
 
 //TODO Change file name to multi_setup, better describes what this is.
 
-use crate::{boiler, fission, turbine};
+use crate::{boiler, fission, turbine, recipe};
 
 pub trait Setup {
     fn print(&self);
@@ -30,6 +30,15 @@ impl Setup for SetupType {
     }
 }
 
+impl SetupType {
+    fn generate_recipe(&self){
+        match self {
+            SetupType::BinarySetup(binary_setup) => recipe::handle_binary_type(binary_setup),
+            SetupType::TrinarySetup(trinary_setup) => recipe::handle_trinary_type(trinary_setup),
+        }
+    }
+}
+
 pub struct BinarySetup {
     pub reactor: crate::fission::FissionReactor,
     pub turbine: crate::turbine::Turbine
@@ -43,7 +52,7 @@ impl Setup for BinarySetup {
 
     fn summarize(&self) -> String {
         format!(" {} / {} ",self.reactor.summarize(), self.turbine.summarize())
-    } 
+    }
 }
 
 impl BinarySetup {
@@ -66,10 +75,8 @@ impl Setup for TrinarySetup {
         self.turbine.print();
     }
 
-    fn summarize(&self){
-        self.reactor.summarize();
-        self.boiler.summarize();
-        self.turbine.summarize();
+    fn summarize(&self) -> String{
+        format!(" {} / {} / {}",self.reactor.summarize(), self.boiler.summarize(), self.turbine.summarize())
     }
 }
 

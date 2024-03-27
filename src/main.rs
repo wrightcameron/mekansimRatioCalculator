@@ -5,16 +5,22 @@ mod metric_prefix;
 mod setups;
 mod turbine;
 mod utils;
+mod recipe;
+mod lookup_table;
 
+use std::env;
 use std::io;
-
 use crate::setups::Setup;
 use fission::FissionReactor;
 
-// use crate::setups::*;
-
 fn main() -> std::io::Result<()> {
-    interactive();
+    // TODO  Have some flags to cause other interactions, like just generate lookup tables, don't run interactive
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && args[1] == "lookup" {
+        lookup_table::create_turbine_lookup_table().unwrap();
+    } else {
+        interactive();
+    }
     Ok(())
 }
 
@@ -34,6 +40,7 @@ fn interactive() {
                         c: create setup\n\
                         l: List created setups\n\
                         p: print created setups\n\
+                        r: Get all materials needed for select setup\n\
                         q: Quit";
     let mut setups: Vec<setups::SetupType> = Vec::new();
     loop {
@@ -51,22 +58,26 @@ fn interactive() {
             "l" => {
                 if setups.len() == 0 {
                     println!("No Setups to print yet, try creating one first.")
-                }else{
-                    for setup in setups.iter() {
-                        println!("Here");
-                        setup.summarize();
-                    }
+                }
+                for (index, setup) in setups.iter().enumerate() {
+                    println!("{index}: {}",setup.summarize());
                 }
             },
             "p" => {
                 if setups.len() == 0 {
                     println!("No Setups created yet, try creating one first.")
-                }else {
-                    for setup in setups.iter() {
-                        println!("Here");
-                        setup.print();
-                    }
                 }
+                for setup in setups.iter() {
+                    setup.print();
+                }
+            },
+            "r" => {
+                if setups.len() == 0 {
+                    println!("No Setups created yet, try creating one first.")
+                }
+                println!("Which created setup do you wish to get parts for?  Choose the index.");
+                let index = read_user_input().parse::<usize>().unwrap();
+                let setup = &setups[index];
             },
             "m" => println!("{prompt}"),
             "q" => std::process::exit(0),
